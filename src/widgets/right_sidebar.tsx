@@ -120,7 +120,11 @@ function MCPBridgeWidget() {
           title: payload.title as string,
           content: payload.content as string | undefined,
           parentId: payload.parentId as string | undefined,
-          tags: payload.tags as string[] | undefined
+          tags: payload.tags as string[] | undefined,
+          isDocument: payload.isDocument as boolean | undefined,
+          headingLevel: payload.headingLevel as number | undefined,
+          isQuote: payload.isQuote as boolean | undefined,
+          isList: payload.isList as boolean | undefined
         });
         setStats(prev => ({ ...prev, created: prev.created + 1 }));
         addHistoryEntry('create', result.title, result.remId);
@@ -346,9 +350,9 @@ function MCPBridgeWidget() {
               >
                 <span style={{
                   color: entry.action === 'create' ? '#22c55e' :
-                         entry.action === 'update' ? '#3b82f6' :
-                         entry.action === 'journal' ? '#8b5cf6' :
-                         entry.action === 'search' ? '#f59e0b' : '#6b7280',
+                    entry.action === 'update' ? '#3b82f6' :
+                      entry.action === 'journal' ? '#8b5cf6' :
+                        entry.action === 'search' ? '#f59e0b' : '#6b7280',
                   fontWeight: 600,
                   width: '12px'
                 }}>
@@ -408,8 +412,8 @@ function MCPBridgeWidget() {
                 <span style={{
                   marginLeft: '8px',
                   color: log.level === 'error' ? '#ef4444' :
-                         log.level === 'success' ? '#22c55e' :
-                         log.level === 'warn' ? '#f59e0b' : '#374151'
+                    log.level === 'success' ? '#22c55e' :
+                      log.level === 'warn' ? '#f59e0b' : '#374151'
                 }}>
                   {log.message}
                 </span>

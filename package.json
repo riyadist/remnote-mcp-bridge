@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@remnote/plugin-sdk": "latest",
+    "adm-zip": "^0.5.16",
     "react": "^17.0.2",
     "react-dom": "^17.0.2"
   },

@@ -15,6 +15,10 @@ export interface CreateNoteParams {
   content?: string;
   parentId?: string;
   tags?: string[];
+  isDocument?: boolean;
+  headingLevel?: number;
+  isQuote?: boolean;
+  isList?: boolean;
 }
 
 export interface AppendJournalParams {
@@ -138,6 +142,12 @@ export class RemAdapter {
 
     // Set the title
     await rem.setText(this.textToRichText(params.title));
+
+    // Apply formatting
+    if (params.isDocument) await rem.setIsDocument(true);
+    if (params.headingLevel) await rem.setHeadingLevel(params.headingLevel);
+    if (params.isQuote) await rem.setIsQuote(true);
+    if (params.isList) await rem.setIsList(true);
 
     // Add content as child if provided
     if (params.content) {

@@ -1,7 +1,7 @@
 {
   "manifestVersion": 1,
-  "id": "remnote-mcp-bridge",
-  "name": "MCP Bridge",
+  "id": "remnote-mcp-bridge-yavuz",
+  "name": "MCP Bridge (Yavuz Edition)",
   "author": "Quentin Tousart",
   "description": "Connect RemNote to AI assistants (Claude, GPT, etc.) via MCP. Create, search, read, and update notes directly from your AI.",
   "version": {

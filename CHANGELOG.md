@@ -32,8 +32,8 @@ All notable changes in this fork are documented in this file.
 - `create_note` / `update_note` workflows expanded with heading/document/quote/list controls.
 - Development server default port changed to `8081`.
 - Plugin manifest identity updated to:
-  - `id: remnote-mcp-bridge-yavuz`
-  - `name: MCP Bridge (Yavuz Edition)`
+  - `id: remnote-mcp-bridge-y-edition`
+  - `name: MCP Bridge (Y Edition)`
 
 ### Fixed
 

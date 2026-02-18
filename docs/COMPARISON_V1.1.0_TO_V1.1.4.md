@@ -1,4 +1,4 @@
-# Detailed Comparison: v1.1.0 -> v1.1.4 (Yavuz Edition)
+# Detailed Comparison: v1.1.0 -> v1.1.4 (Y Edition)
 
 This document compares the original baseline (`v1.1.0`, commit `2caea76`) with the current fork state (`v1.1.4` target).
 
@@ -172,8 +172,8 @@ No core feature was removed. The fork is additive:
 - `webpack.config.js`
   - dev server configured for host binding and allowed hosts
 - `public/manifest.json`
-  - plugin identity changed to `remnote-mcp-bridge-yavuz`
-  - display name changed to `MCP Bridge (Yavuz Edition)`
+  - plugin identity changed to `remnote-mcp-bridge-y-edition`
+  - display name changed to `MCP Bridge (Y Edition)`
   - version set to `1.1.4`
 
 ## Benefit

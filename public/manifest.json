@@ -1,7 +1,7 @@
 {
   "manifestVersion": 1,
-  "id": "remnote-mcp-bridge-yavuz",
-  "name": "MCP Bridge (Yavuz Edition)",
+  "id": "remnote-mcp-bridge-y-edition",
+  "name": "MCP Bridge (Y Edition)",
   "author": "Yavuz Uysal",
   "description": "Connect RemNote to AI assistants (Claude, GPT, etc.) via MCP. Extended fork with structured summaries, table workflows, and robust formatting controls.",
   "version": {

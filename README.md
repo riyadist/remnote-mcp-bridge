@@ -1,4 +1,4 @@
-# RemNote MCP Bridge (Yavuz Edition)
+# RemNote MCP Bridge (Y Edition)
 
 Fork of `quentintou/remnote-mcp-bridge`, extended for production-style MCP workflows and richer RemNote editing operations.
 

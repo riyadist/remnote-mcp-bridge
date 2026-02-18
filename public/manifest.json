@@ -1,21 +1,21 @@
-﻿{
-    "manifestVersion":  1,
-    "id":  "remnote-mcp-bridge-yavuz",
-    "name":  "MCP Bridge (Yavuz Edition)",
-    "author":  "Quentin Tousart",
-    "description":  "Connect RemNote to AI assistants (Claude, GPT, etc.) via MCP. Create, search, read, and update notes directly from your AI.",
-    "version":  {
-                    "major":  1,
-                    "minor":  1,
-                    "patch":  4
-                },
-    "repoUrl":  "https://github.com/quentintou/remnote-mcp-bridge",
-    "enableOnMobile":  false,
-    "requestNative":  false,
-    "requiredScopes":  [
-                           {
-                               "type":  "All",
-                               "level":  "ReadCreateModifyDelete"
-                           }
-                       ]
+{
+  "manifestVersion": 1,
+  "id": "remnote-mcp-bridge-yavuz",
+  "name": "MCP Bridge (Yavuz Edition)",
+  "author": "Yavuz Uysal",
+  "description": "Connect RemNote to AI assistants (Claude, GPT, etc.) via MCP. Extended fork with structured summaries, table workflows, and robust formatting controls.",
+  "version": {
+    "major": 1,
+    "minor": 1,
+    "patch": 4
+  },
+  "repoUrl": "https://github.com/riyadist/remnote-mcp-bridge",
+  "enableOnMobile": false,
+  "requestNative": false,
+  "requiredScopes": [
+    {
+      "type": "All",
+      "level": "ReadCreateModifyDelete"
+    }
+  ]
 }

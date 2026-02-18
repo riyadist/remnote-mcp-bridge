@@ -15,6 +15,7 @@ export interface CreateNoteParams {
   content?: string;
   parentId?: string;
   tags?: string[];
+  tagIds?: string[];
   isDocument?: boolean;
   headingLevel?: number;
   isQuote?: boolean;
@@ -46,10 +47,49 @@ export interface UpdateNoteParams {
   removeTags?: string[];
 }
 
+export interface MoveNoteParams {
+  remId: string;
+  parentId?: string | null;
+  positionAmongstSiblings?: number;
+}
+
+export interface DeleteNoteParams {
+  remId: string;
+}
+
 export interface OverwriteNoteContentParams {
   remId: string;
   content: string;
   headingLevel?: number;
+}
+
+export interface CreateStructuredSummaryParams {
+  parentId: string;
+  title: string;
+  headingLevel?: number;
+  tags?: string[];
+  sections: Array<{
+    heading: string;
+    body: string;
+  }>;
+}
+
+export interface CreateTableParams {
+  title?: string;
+  parentId?: string;
+  existingTagId?: string;
+  tags?: string[];
+}
+
+export interface CreatePropertyParams {
+  parentTagId: string;
+  name: string;
+}
+
+export interface SetTagPropertyValueParams {
+  remId: string;
+  propertyId: string;
+  value?: string;
 }
 
 export interface NoteChild {
@@ -238,6 +278,88 @@ export class RemAdapter {
   }
 
   /**
+   * Normalize text for robust internal comparisons.
+   */
+  private normalizeForCompare(value: string): string {
+    return (value || '')
+      .normalize('NFC')
+      .toLocaleLowerCase('tr-TR')
+      .replace(/[çÇ]/g, 'c')
+      .replace(/[ğĞ]/g, 'g')
+      .replace(/[ıİ]/g, 'i')
+      .replace(/[öÖ]/g, 'o')
+      .replace(/[şŞ]/g, 's')
+      .replace(/[üÜ]/g, 'u')
+      .trim();
+  }
+
+  /**
+   * Resolve the row-tag rem backing a table rem.
+   * RemNote stores this through the table query child configuration.
+   */
+  private async resolveTableRowTagRem(tableRem: PluginRem): Promise<PluginRem | undefined> {
+    const children = await tableRem.getChildrenRem();
+
+    for (const child of children) {
+      const refs = await child.remsBeingReferenced();
+      if (!refs || refs.length === 0) continue;
+
+      let hasQueryRef = false;
+      const candidates: PluginRem[] = [];
+
+      for (const ref of refs) {
+        const refTitle = this.normalizeForCompare(await this.getRemText(ref));
+        if (refTitle === 'query') {
+          hasQueryRef = true;
+          continue;
+        }
+        if (refTitle === 'show nested descendants') continue;
+        if (ref._id === tableRem._id) continue;
+        candidates.push(ref);
+      }
+
+      if (hasQueryRef && candidates.length > 0) {
+        return candidates[0];
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Map incoming tag IDs so table rem IDs are converted to their row-tag IDs.
+   * This prevents creating invisible rows by accidentally tagging with table rems.
+   */
+  private async resolveTagIdsForCreate(tagIds: string[] | undefined): Promise<string[]> {
+    const resolved = new Set<string>();
+    if (!tagIds || tagIds.length === 0) return [];
+
+    for (const tagId of tagIds) {
+      const clean = (tagId || '').trim();
+      if (!clean) continue;
+
+      const tagRem = await this.plugin.rem.findOne(clean);
+      if (!tagRem) continue;
+
+      let targetId = tagRem._id;
+      try {
+        if (await tagRem.isTable()) {
+          const rowTagRem = await this.resolveTableRowTagRem(tagRem);
+          if (rowTagRem) {
+            targetId = rowTagRem._id;
+          }
+        }
+      } catch {
+        // Fall back to original tag id when table checks fail.
+      }
+
+      resolved.add(targetId);
+    }
+
+    return Array.from(resolved);
+  }
+
+  /**
    * Create a new note in RemNote
    */
   async createNote(params: CreateNoteParams): Promise<{ remId: string; title: string }> {
@@ -251,15 +373,11 @@ export class RemAdapter {
 
     // Apply formatting
     if (params.isDocument) await rem.setIsDocument(true);
-    if (typeof params.headingLevel === 'number' && params.headingLevel > 0) {
-      const fontSize =
-        params.headingLevel === 1
-          ? 'H1'
-          : params.headingLevel === 2
-            ? 'H2'
-            : 'H3';
-      await rem.setFontSize(fontSize);
-    }
+    const headingFontSize =
+      typeof params.headingLevel === 'number' && params.headingLevel > 0
+        ? (params.headingLevel === 1 ? 'H1' : params.headingLevel === 2 ? 'H2' : 'H3')
+        : undefined;
+    if (headingFontSize) await rem.setFontSize(headingFontSize);
     if (params.isQuote) await rem.setIsQuote(true);
     if (params.isList) await rem.setIsListItem(true);
 
@@ -350,6 +468,23 @@ export class RemAdapter {
     // Add all tags
     for (const tagName of allTags) {
       await this.addTagToRem(rem, tagName);
+    }
+
+    // Add tag IDs directly when provided (for deterministic table row tagging).
+    if (params.tagIds && params.tagIds.length > 0) {
+      const resolvedTagIds = await this.resolveTagIdsForCreate(params.tagIds);
+      for (const tagId of resolvedTagIds) {
+        const tagRem = await this.plugin.rem.findOne(tagId);
+        if (tagRem) {
+          await rem.addTag(tagRem._id);
+        }
+      }
+    }
+
+    // Some RemNote flows can clear heading on create/parent/tag operations.
+    // Re-apply once at the end so create_note is deterministic in one call.
+    if (headingFontSize) {
+      await rem.setFontSize(headingFontSize);
     }
 
     return { remId: rem._id, title: params.title };
@@ -531,6 +666,10 @@ export class RemAdapter {
       throw new Error(`Note not found: ${params.remId}`);
     }
 
+    // RemNote may clear heading style when text is rewritten.
+    // Preserve current heading unless caller explicitly overrides headingLevel.
+    const previousFontSize = await rem.getFontSize();
+
     // Update title if provided
     if (params.title) {
       await rem.setText(await this.textToRichText(params.title));
@@ -548,6 +687,8 @@ export class RemAdapter {
               : 'H3';
         await rem.setFontSize(fontSize);
       }
+    } else if (params.title) {
+      await rem.setFontSize(previousFontSize);
     }
 
     // Append content as new children
@@ -581,6 +722,65 @@ export class RemAdapter {
       }
     }
 
+    return { success: true, remId: params.remId };
+  }
+
+  /**
+   * Move an existing note to another parent (or root when parentId is null/empty).
+   */
+  async moveNote(params: MoveNoteParams): Promise<{ success: boolean; remId: string; parentId: string | null }> {
+    const rem = await this.plugin.rem.findOne(params.remId);
+    if (!rem) {
+      throw new Error(`Note not found: ${params.remId}`);
+    }
+
+    const target = (params.parentId || '').trim();
+    if (!target) {
+      await rem.setParent(null, params.positionAmongstSiblings);
+      return { success: true, remId: rem._id, parentId: null };
+    }
+
+    let parentRem: PluginRem | undefined;
+    if (this.isUUID(target)) {
+      parentRem = await this.plugin.rem.findOne(target);
+    }
+
+    if (!parentRem) {
+      const variants = this.buildNameVariants(target);
+      for (const variant of variants) {
+        parentRem = await this.plugin.rem.findByName([variant], null);
+        if (parentRem) break;
+      }
+    }
+
+    if (!parentRem) {
+      const variants = this.buildNameVariants(target);
+      for (const variant of variants) {
+        const results = await this.plugin.search.search(this.textToPlainRichText(variant), undefined, { numResults: 1 });
+        if (results && results.length > 0) {
+          parentRem = results[0];
+          break;
+        }
+      }
+    }
+
+    if (!parentRem) {
+      throw new Error(`Parent not found: ${target}`);
+    }
+
+    await rem.setParent(parentRem, params.positionAmongstSiblings);
+    return { success: true, remId: rem._id, parentId: parentRem._id };
+  }
+
+  /**
+   * Delete an existing note and its descendants.
+   */
+  async deleteNote(params: DeleteNoteParams): Promise<{ success: boolean; remId: string }> {
+    const rem = await this.plugin.rem.findOne(params.remId);
+    if (!rem) {
+      throw new Error(`Note not found: ${params.remId}`);
+    }
+    await rem.remove();
     return { success: true, remId: params.remId };
   }
 
@@ -625,6 +825,254 @@ export class RemAdapter {
     }
 
     return { success: true, remId: params.remId };
+  }
+
+  /**
+   * Create a full summary note in one operation:
+   * title + heading + tags + section headers + section body rows.
+   */
+  async createStructuredSummary(params: CreateStructuredSummaryParams): Promise<{
+    remId: string;
+    title: string;
+    fontSize?: 'H1' | 'H2' | 'H3';
+  }> {
+    const created = await this.createNote({
+      title: params.title,
+      parentId: params.parentId,
+      headingLevel: params.headingLevel ?? 3,
+      tags: params.tags ?? []
+    });
+
+    const root = await this.plugin.rem.findOne(created.remId);
+    if (!root) {
+      throw new Error(`Failed to resolve summary rem after create: ${created.remId}`);
+    }
+
+    // Ensure clean structure in case template/default children are inserted.
+    const existingChildren = await root.getChildrenRem();
+    for (const child of existingChildren) {
+      await child.remove();
+    }
+
+    for (const section of params.sections || []) {
+      const headingText = (section.heading || '').trim();
+      const bodyText = (section.body || '').trim();
+      if (!headingText && !bodyText) continue;
+
+      const headerRem = await this.plugin.rem.createRem();
+      if (!headerRem) continue;
+      await headerRem.setText(await this.textToRichText(`***${headingText || 'Section'}***`));
+      await headerRem.setFontSize(undefined);
+      await headerRem.setParent(root);
+
+      if (bodyText) {
+        const bodyRem = await this.plugin.rem.createRem();
+        if (bodyRem) {
+          await bodyRem.setText(await this.textToRichText(bodyText));
+          await bodyRem.setParent(headerRem);
+        }
+      }
+    }
+
+    // Final heading lock so caller gets deterministic level in one call.
+    if (typeof params.headingLevel === 'number' && params.headingLevel > 0) {
+      const fontSize =
+        params.headingLevel === 1
+          ? 'H1'
+          : params.headingLevel === 2
+            ? 'H2'
+            : 'H3';
+      await root.setFontSize(fontSize);
+    }
+
+    return {
+      remId: root._id,
+      title: await this.getRemText(root),
+      fontSize: await root.getFontSize()
+    };
+  }
+
+  /**
+   * Create a native RemNote table rem.
+   */
+  async createTable(params: CreateTableParams): Promise<{
+    remId: string;
+    title: string;
+    isTable: boolean;
+    rowTagRemId: string;
+  }> {
+    const title = (params.title || 'Tablo').trim() || 'Tablo';
+    let existingTagRem: PluginRem | undefined;
+
+    if (params.existingTagId && params.existingTagId.trim()) {
+      const target = params.existingTagId.trim();
+      if (this.isUUID(target)) {
+        existingTagRem = await this.plugin.rem.findOne(target);
+      }
+      if (!existingTagRem) {
+        const variants = this.buildNameVariants(target);
+        for (const variant of variants) {
+          existingTagRem = await this.plugin.rem.findByName([variant], null);
+          if (existingTagRem) break;
+        }
+      }
+    }
+
+    if (!existingTagRem) {
+      const tableTag = await this.plugin.rem.createRem();
+      if (!tableTag) {
+        throw new Error('Failed to create table tag rem');
+      }
+      await tableTag.setText(await this.textToRichText(`${title} Row`));
+      existingTagRem = tableTag;
+    }
+
+    const table = await this.plugin.rem.createTable(existingTagRem);
+    if (!table) {
+      throw new Error('Failed to create table rem');
+    }
+
+    await table.setText(await this.textToRichText(title));
+
+    const parentTarget = (params.parentId || this.settings.defaultParentId || '').trim();
+    if (parentTarget) {
+      let parentRem: PluginRem | undefined;
+      const variants = this.buildNameVariants(parentTarget);
+
+      if (this.isUUID(parentTarget)) {
+        parentRem = await this.plugin.rem.findOne(parentTarget);
+      }
+
+      if (!parentRem) {
+        for (const variant of variants) {
+          parentRem = await this.plugin.rem.findByName([variant], null);
+          if (parentRem) break;
+        }
+      }
+
+      if (!parentRem) {
+        for (const variant of variants) {
+          const matches = await this.plugin.search.search(this.textToPlainRichText(variant), undefined, {
+            numResults: 1
+          });
+          if (matches && matches.length > 0) {
+            parentRem = matches[0];
+            break;
+          }
+        }
+      }
+
+      if (parentRem) {
+        await table.setParent(parentRem);
+      }
+    }
+
+    const allTags = [...(params.tags || [])];
+    if (this.settings.autoTagEnabled && this.settings.autoTag) {
+      if (!allTags.includes(this.settings.autoTag)) {
+        allTags.push(this.settings.autoTag);
+      }
+    }
+    for (const tagName of allTags) {
+      await this.addTagToRem(table, tagName);
+    }
+
+    return {
+      remId: table._id,
+      title: (await this.getRemText(table)) || title,
+      isTable: Boolean(await table.isTable()),
+      rowTagRemId: existingTagRem._id
+    };
+  }
+
+  /**
+   * Create a property under a tag rem (table row tag), or reuse if it already exists.
+   */
+  async createProperty(params: CreatePropertyParams): Promise<{
+    remId: string;
+    title: string;
+    parentTagId: string;
+  }> {
+    const requestedParent = await this.plugin.rem.findOne(params.parentTagId);
+    if (!requestedParent) {
+      throw new Error(`Parent tag not found: ${params.parentTagId}`);
+    }
+    let parent = requestedParent;
+
+    try {
+      if (await requestedParent.isTable()) {
+        const rowTagRem = await this.resolveTableRowTagRem(requestedParent);
+        if (!rowTagRem) {
+          throw new Error(`Could not resolve row tag rem for table: ${requestedParent._id}`);
+        }
+        parent = rowTagRem;
+      }
+    } catch (err) {
+      if (err instanceof Error) {
+        throw err;
+      }
+      throw new Error(`Failed to resolve property parent for ${params.parentTagId}`);
+    }
+
+    const name = (params.name || '').trim();
+    if (!name) {
+      throw new Error('Property name is required');
+    }
+
+    const wanted = name.normalize('NFC').toLocaleLowerCase('tr-TR');
+    const existingChildren = await parent.getChildrenRem();
+    for (const child of existingChildren) {
+      const childTitle = (await this.getRemText(child)).normalize('NFC').toLocaleLowerCase('tr-TR');
+      if (childTitle === wanted) {
+        if (!(await child.isProperty())) {
+          await child.setIsProperty(true);
+        }
+        return {
+          remId: child._id,
+          title: await this.getRemText(child),
+          parentTagId: parent._id
+        };
+      }
+    }
+
+    const property = await this.plugin.rem.createRem();
+    if (!property) {
+      throw new Error('Failed to create property rem');
+    }
+
+    await property.setText(await this.textToRichText(name));
+    await property.setIsProperty(true);
+    await property.setParent(parent);
+
+    return {
+      remId: property._id,
+      title: await this.getRemText(property),
+      parentTagId: parent._id
+    };
+  }
+
+  /**
+   * Set a property value for a tagged row rem.
+   */
+  async setTagPropertyValue(params: SetTagPropertyValueParams): Promise<{ success: boolean; remId: string; propertyId: string }> {
+    const rem = await this.plugin.rem.findOne(params.remId);
+    if (!rem) {
+      throw new Error(`Row rem not found: ${params.remId}`);
+    }
+
+    const property = await this.plugin.rem.findOne(params.propertyId);
+    if (!property) {
+      throw new Error(`Property rem not found: ${params.propertyId}`);
+    }
+
+    const value = typeof params.value === 'string' ? params.value : '';
+    if (!value.trim()) {
+      await rem.setTagPropertyValue(property._id, undefined);
+    } else {
+      await rem.setTagPropertyValue(property._id, await this.textToRichText(value));
+    }
+
+    return { success: true, remId: rem._id, propertyId: property._id };
   }
 
   /**

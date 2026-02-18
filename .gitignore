@@ -4,3 +4,10 @@ dist
 dist-ssr
 *.local
 *.zip
+dev.out.log
+dev.err.log
+dev.pid
+*.pid
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

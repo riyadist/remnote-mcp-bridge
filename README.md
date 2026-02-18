@@ -1,198 +1,115 @@
-# RemNote MCP Bridge
+# RemNote MCP Bridge (Yavuz Edition)
 
-Connect RemNote to AI assistants (Claude, GPT, etc.) via the **Model Context Protocol (MCP)**. This plugin enables bidirectional communication, allowing AI to read and write directly to your RemNote knowledge base.
+Fork of `quentintou/remnote-mcp-bridge`, extended for production-style MCP workflows and richer RemNote editing operations.
 
-![Status](https://img.shields.io/badge/status-beta-yellow)
-![License](https://img.shields.io/badge/license-MIT-blue)
+## Why this fork
 
-## What is MCP?
+This fork keeps the original core features and adds:
 
-[Model Context Protocol](https://modelcontextprotocol.io/) is an open standard by Anthropic that allows AI assistants to interact with external tools and data sources. With this plugin, your AI assistant becomes a true PKM companion.
+- Background bridge lifecycle (connection does not depend on opening the sidebar widget)
+- Better protocol compatibility (custom action payloads + JSON-RPC 2.0 style requests)
+- Richer RemNote operations (structured summaries, table/property workflows, note move/delete/overwrite)
+- Better handling for Turkish text matching and search fallback
+- Cleaner local development defaults for localhost plugin work
 
-## Features
+## Version baseline
 
-### Core Capabilities
-- **Create Notes** - AI can create new notes with titles, content, and tags
-- **Search Knowledge Base** - Full-text search across all your Rems
-- **Read Notes** - Access note content and hierarchical children
-- **Update Notes** - Modify existing notes, append content, manage tags
-- **Daily Journal** - Append entries to today's daily document
+- Original baseline in this fork: `v1.1.0` (`origin/main`, commit `2caea76`)
+- Current fork target: `v1.1.4`
+- Detailed technical diff: `docs/COMPARISON_V1.1.0_TO_V1.1.4.md`
 
-### Plugin Features
-- **Auto-tagging** - Automatically tag notes created via MCP (configurable)
-- **Session Statistics** - Track created/updated/journal entries/searches
-- **Action History** - View last 10 MCP actions with timestamps
-- **Configurable Settings** - Customize behavior through RemNote settings
-- **Real-time Status** - Connection status indicator in sidebar widget
+## Feature set
 
-## Installation
+### Preserved from original
 
-### 1. Install the RemNote Plugin
+- `create_note`
+- `append_journal`
+- `search`
+- `read_note`
+- `update_note`
+- `get_status`
 
-Download `PluginZip.zip` from [Releases](https://github.com/quentintou/remnote-mcp-bridge/releases) and install it in RemNote:
-- Go to **Settings > Plugins > Install from zip**
-- Select the downloaded zip file
+### Added in this fork
 
-Or for development:
+- `move_note`
+- `delete_note`
+- `overwrite_note_content`
+- `create_structured_summary`
+- `create_table`
+- `create_property`
+- `set_tag_property_value`
+- `count_books_table` (debug/validation helper)
+- `count_tagged_rems` (debug helper)
+- `debug_window_context` (debug helper)
+- `debug_focused_page_children_raw` (debug helper)
+- `inspect_rem_relations` (debug helper)
+- `debug_rem_raw_text` (debug helper)
+
+## Project structure
+
+```text
+public/
+  manifest.json
+src/
+  api/
+    rem-adapter.ts
+  bridge/
+    websocket-client.ts
+  widgets/
+    index.tsx
+    right_sidebar.tsx
+  settings.ts
+  style.css
+  index.css
+docs/
+  COMPARISON_V1.1.0_TO_V1.1.4.md
+  GITHUB_PR_DRAFT.md
+CHANGELOG.md
+CONTRIBUTING.md
+```
+
+## Local development
+
 ```bash
-git clone https://github.com/quentintou/remnote-mcp-bridge.git
-cd remnote-mcp-bridge
 npm install
 npm run dev
 ```
 
-### 2. Install the MCP Server
+Notes:
+- Dev server is configured for `http://localhost:8081`.
+- Manifest URL for RemNote local plugin dev: `http://localhost:8081/manifest.json`.
 
-The MCP server acts as a bridge between your AI assistant and this plugin.
-
-```bash
-npm install -g remnote-mcp-server
-```
-
-Or clone and run locally:
-```bash
-git clone https://github.com/quentintou/remnote-mcp-server.git
-cd remnote-mcp-server
-npm install
-npm start
-```
-
-### 3. Configure Your AI Assistant
-
-#### For Claude Desktop
-Add to your `claude_desktop_config.json`:
-```json
-{
-  "mcpServers": {
-    "remnote": {
-      "command": "remnote-mcp-server",
-      "args": []
-    }
-  }
-}
-```
-
-#### For Claude Code CLI
-Add to your MCP settings:
-```json
-{
-  "remnote": {
-    "command": "remnote-mcp-server"
-  }
-}
-```
-
-## Configuration
-
-Access plugin settings in RemNote via **Settings > Plugins > MCP Bridge**:
-
-| Setting | Description | Default |
-|---------|-------------|---------|
-| Auto-tag MCP notes | Add a tag to all AI-created notes | `true` |
-| Auto-tag name | Tag name for AI-created notes | `MCP` |
-| Journal entry prefix | Prefix for journal entries | `[Claude]` |
-| Add timestamp to journal | Include time in journal entries | `true` |
-| WebSocket server URL | MCP server connection URL | `ws://127.0.0.1:3002` |
-| Default parent Rem ID | Parent for new notes (empty = root) | `` |
-
-## MCP Tools Available
-
-Once connected, your AI assistant can use these tools:
-
-| Tool | Description |
-|------|-------------|
-| `remnote_create_note` | Create a new note with title, content, parent, and tags |
-| `remnote_search` | Search the knowledge base with query and filters |
-| `remnote_read_note` | Read a note's content and children by ID |
-| `remnote_update_note` | Update title, append content, add/remove tags |
-| `remnote_append_journal` | Add an entry to today's daily document |
-| `remnote_status` | Check connection status |
-
-## Example Usage
-
-Once everything is connected, you can ask your AI assistant things like:
-
-- *"Create a note about the meeting we just had"*
-- *"Search my notes for information about project X"*
-- *"Add a journal entry: Finished the MCP integration today!"*
-- *"Find all my notes tagged with 'Ideas' and summarize them"*
-- *"Update my 'Reading List' note with this new book"*
-
-## Architecture
-
-```
-┌─────────────────┐     WebSocket      ┌─────────────────┐
-│   AI Assistant  │◄──────────────────►│   MCP Server    │
-│ (Claude, etc.)  │     (stdio/MCP)    │  (Node.js)      │
-└─────────────────┘                    └────────┬────────┘
-                                                │
-                                           WebSocket
-                                           :3002
-                                                │
-                                       ┌────────▼────────┐
-                                       │  RemNote Plugin │
-                                       │  (This plugin)  │
-                                       └────────┬────────┘
-                                                │
-                                          Plugin SDK
-                                                │
-                                       ┌────────▼────────┐
-                                       │    RemNote      │
-                                       │ Knowledge Base  │
-                                       └─────────────────┘
-```
-
-## Development
+## Build
 
 ```bash
-# Install dependencies
-npm install
-
-# Run in development mode (hot reload)
-npm run dev
-
-# Build for production
 npm run build
-
-# The plugin zip will be created as PluginZip.zip
 ```
 
-## Troubleshooting
+Build output:
+- `PluginZip.zip` is produced from the `dist/` build.
 
-### Plugin shows "Disconnected"
-- Ensure the MCP server is running (`remnote-mcp-server`)
-- Check the WebSocket URL in settings (default: `ws://127.0.0.1:3002`)
-- Look for errors in RemNote's developer console (Cmd+Option+I)
+## GitHub contribution flow
 
-### "Invalid event setCustomCSS" errors
-- These are cosmetic errors from development mode
-- They don't affect functionality
-- They won't appear in production builds
+If you want to contribute these changes upstream or present your fork clearly:
 
-### Notes not appearing
-- Check if a default parent ID is set (might be creating under a specific Rem)
-- Verify the auto-tag setting isn't filtering your view
+1. Push your branch to `https://github.com/riyadist/remnote-mcp-bridge`.
+2. Use `docs/GITHUB_PR_DRAFT.md` as your PR description.
+3. Link `docs/COMPARISON_V1.1.0_TO_V1.1.4.md` in the PR for a full technical breakdown.
 
-## Contributing
+## Hygiene
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Runtime artifacts are ignored:
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+- `dev.out.log`
+- `dev.err.log`
+- `dev.pid`
+- `*.pid`
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT (same as upstream).
 
-## Acknowledgments
+## Credits
 
-- [RemNote](https://remnote.com) for the amazing PKM tool
-- [Anthropic](https://anthropic.com) for Claude and the MCP protocol
-- The RemNote plugin community for inspiration
-
----
-
-**Made with Claude Code** - This plugin was developed in collaboration with Claude AI.
+- Upstream project: https://github.com/quentintou/remnote-mcp-bridge
+- Fork maintainer: https://github.com/riyadist

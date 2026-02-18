@@ -7,7 +7,7 @@
   "version": {
     "major": 1,
     "minor": 1,
-    "patch": 0
+    "patch": 3
   },
   "repoUrl": "https://github.com/quentintou/remnote-mcp-bridge",
   "enableOnMobile": false,

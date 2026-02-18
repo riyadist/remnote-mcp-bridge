@@ -5,16 +5,41 @@
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
+export type BridgeRequestId = string | number | null;
+
 export interface BridgeRequest {
-  id: string;
+  id: BridgeRequestId;
   action: string;
   payload: Record<string, unknown>;
 }
 
 export interface BridgeResponse {
-  id: string;
+  id: BridgeRequestId;
   result?: unknown;
   error?: string;
+}
+
+interface JsonRpcRequest {
+  jsonrpc: '2.0';
+  id?: BridgeRequestId;
+  method: string;
+  params?: unknown;
+}
+
+interface JsonRpcSuccessResponse {
+  jsonrpc: '2.0';
+  id: BridgeRequestId;
+  result: unknown;
+}
+
+interface JsonRpcErrorResponse {
+  jsonrpc: '2.0';
+  id: BridgeRequestId;
+  error: {
+    code: number;
+    message: string;
+    data?: unknown;
+  };
 }
 
 export interface WebSocketClientConfig {
@@ -42,7 +67,7 @@ export class WebSocketClient {
   constructor(config: WebSocketClientConfig) {
     this.config = {
       url: config.url,
-      maxReconnectAttempts: config.maxReconnectAttempts ?? 10,
+      maxReconnectAttempts: config.maxReconnectAttempts ?? Number.POSITIVE_INFINITY,
       initialReconnectDelay: config.initialReconnectDelay ?? 1000,
       maxReconnectDelay: config.maxReconnectDelay ?? 30000,
       onStatusChange: config.onStatusChange,
@@ -104,40 +129,117 @@ export class WebSocketClient {
 
   private async handleMessage(data: string): Promise<void> {
     try {
-      const message = JSON.parse(data);
+      const message = JSON.parse(data) as unknown;
 
       // Handle ping/pong heartbeat
-      if (message.type === 'ping') {
+      if (this.isRecord(message) && message.type === 'ping') {
         this.ws?.send(JSON.stringify({ type: 'pong' }));
         return;
       }
 
-      // Handle request from server
-      if (message.id && message.action && this.messageHandler) {
-        const request = message as BridgeRequest;
-        this.log(`Received: ${request.action}`);
+      if (!this.messageHandler) {
+        this.log('Message received but no handler is registered; ignoring', 'warn');
+        return;
+      }
 
-        try {
-          const result = await this.messageHandler(request);
-          const response: BridgeResponse = {
-            id: request.id,
-            result
-          };
-          this.ws?.send(JSON.stringify(response));
-          this.log(`Completed: ${request.action}`);
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          const response: BridgeResponse = {
-            id: request.id,
-            error: errorMessage
-          };
-          this.ws?.send(JSON.stringify(response));
-          this.log(`Failed: ${request.action} - ${errorMessage}`, 'error');
-        }
+      const normalized = this.normalizeIncomingRequest(message);
+      if (!normalized) {
+        this.log('Ignoring unsupported message format', 'warn');
+        return;
+      }
+
+      const { request, respond } = normalized;
+      this.log(`Received: ${request.action}`);
+
+      try {
+        const result = await this.messageHandler(request);
+        respond?.({ ok: true, result });
+        this.log(`Completed: ${request.action}`);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        respond?.({ ok: false, error: errorMessage });
+        this.log(`Failed: ${request.action} - ${errorMessage}`, 'error');
       }
     } catch (error) {
       this.log(`Failed to process message: ${error}`, 'error');
     }
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+  }
+
+  private asPayload(value: unknown): Record<string, unknown> {
+    return this.isRecord(value) ? value : {};
+  }
+
+  private normalizeIncomingRequest(message: unknown): null | {
+    request: BridgeRequest;
+    respond?: (outcome: { ok: true; result: unknown } | { ok: false; error: string }) => void;
+  } {
+    if (!this.isRecord(message)) {
+      return null;
+    }
+
+    // Custom bridge format: { id?, action, payload? }
+    if (typeof message.action === 'string') {
+      const request: BridgeRequest = {
+        id: (message.id as BridgeRequestId) ?? null,
+        action: message.action,
+        payload: this.asPayload(message.payload)
+      };
+
+      const hasId = 'id' in message;
+      const respond = hasId
+        ? (outcome: { ok: true; result: unknown } | { ok: false; error: string }) => {
+            const response: BridgeResponse = {
+              id: request.id,
+              ...(outcome.ok ? { result: outcome.result } : { error: outcome.error })
+            };
+            this.ws?.send(JSON.stringify(response));
+          }
+        : undefined;
+
+      return { request, respond };
+    }
+
+    // JSON-RPC 2.0 request: { jsonrpc:"2.0", id?, method, params? }
+    if (message.jsonrpc === '2.0' && typeof message.method === 'string') {
+      const rpcId = ('id' in message ? (message.id as BridgeRequestId) : undefined) ?? null;
+      const request: BridgeRequest = {
+        id: rpcId,
+        action: message.method,
+        payload: this.asPayload(message.params)
+      };
+
+      const hasId = 'id' in message;
+      const respond = hasId
+        ? (outcome: { ok: true; result: unknown } | { ok: false; error: string }) => {
+            if (outcome.ok) {
+              const response: JsonRpcSuccessResponse = {
+                jsonrpc: '2.0',
+                id: request.id,
+                result: outcome.result
+              };
+              this.ws?.send(JSON.stringify(response));
+            } else {
+              const response: JsonRpcErrorResponse = {
+                jsonrpc: '2.0',
+                id: request.id,
+                error: {
+                  code: -32000,
+                  message: outcome.error
+                }
+              };
+              this.ws?.send(JSON.stringify(response));
+            }
+          }
+        : undefined;
+
+      return { request, respond };
+    }
+
+    return null;
   }
 
   private scheduleReconnect(): void {

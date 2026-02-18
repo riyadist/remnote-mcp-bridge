@@ -63,8 +63,8 @@ const config = {
     isDevelopment
       ? undefined
       : new MiniCssExtractPlugin({
-          filename: '[name].css',
-        }),
+        filename: '[name].css',
+      }),
     new HtmlWebpackPlugin({
       templateContent: `
       <body></body>
@@ -111,7 +111,7 @@ if (isProd) {
 } else {
   // for more information, see https://webpack.js.org/configuration/dev-server
   config.devServer = {
-    port: 8080,
+    port: 8081,
     open: true,
     hot: true,
     compress: true,
@@ -120,6 +120,8 @@ if (isProd) {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Headers': 'baggage, sentry-trace',
     },
+    allowedHosts: 'all',
+    host: '0.0.0.0', // Bind to all interfaces (IPv4/IPv6)
   };
 }
 

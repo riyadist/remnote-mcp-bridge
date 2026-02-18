@@ -637,7 +637,7 @@ export class RemAdapter {
   }> {
     return {
       connected: true,
-      pluginVersion: '1.1.0',
+      pluginVersion: '1.1.4',
       knowledgeBaseId: undefined
     };
   }

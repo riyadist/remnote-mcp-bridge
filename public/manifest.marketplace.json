@@ -3,7 +3,7 @@
   "id": "remnote-mcp-bridge-y-edition",
   "name": "MCP Bridge (Y Edition)",
   "author": "Yavuz Uysal",
-  "description": "Production-grade RemNote MCP bridge with typed note, tag, property, template, table, flashcard, graph, vault export, safe migration, and read-only DB diagnostic workflows.",
+  "description": "Connect RemNote to AI assistants so they can search, organize, export, and safely update your notes through a local bridge.",
   "version": {
     "major": 2,
     "minor": 58,

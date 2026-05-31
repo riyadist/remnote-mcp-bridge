@@ -2,9 +2,30 @@
 
 Current release target: **v2.58.0**
 
+This plugin connects RemNote to AI assistants through a local bridge. In plain
+English: it lets an AI help you find notes, organize your knowledge base, create
+or update notes, inspect tags and properties, export your RemNote data for
+analysis, and plan safer cleanups before changing anything.
+
+It is built for people who want RemNote to work with tools like Claude, GPT, or
+other MCP clients without manually copying notes back and forth.
+
+## What You Can Do With It
+
+- Ask an AI to search your RemNote notes and open the right page.
+- Create, update, move, tag, and organize notes from an AI workflow.
+- Export parts of your knowledge base for backup, review, or graph analysis.
+- Find messy areas such as missing dates, broken properties, or tag/template
+  issues before they turn into a bigger cleanup job.
+- Make safer bulk changes with dry-run previews, confirmations, snapshots, and
+  rollback-oriented checks.
+
+The bridge runs locally on your computer. It does not upload your whole
+knowledge base to a third-party service by itself, and direct internal database
+access is kept read-only for diagnostics.
+
 This is a production-oriented fork of
-[`quentintou/remnote-mcp-bridge`](https://github.com/quentintou/remnote-mcp-bridge).
-It connects RemNote to MCP clients and AI assistants through a local bridge,
+[`quentintou/remnote-mcp-bridge`](https://github.com/quentintou/remnote-mcp-bridge)
 with a much larger typed action surface for reading, writing, debugging,
 exporting, and safely migrating a RemNote knowledge base.
 

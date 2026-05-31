@@ -24,6 +24,54 @@ The bridge runs locally on your computer. It does not upload your whole
 knowledge base to a third-party service by itself, and direct internal database
 access is kept read-only for diagnostics.
 
+## How To Connect Your AI Assistant
+
+If you are new to MCP, think of the setup like a short chain:
+
+```text
+RemNote plugin -> local bridge on your computer -> MCP server -> your AI app
+```
+
+The RemNote plugin is the RemNote side of the connection. Your AI assistant also
+needs an MCP-compatible app or client that can start a local MCP server.
+
+Beginner setup:
+
+1. Install and enable this plugin in RemNote.
+2. Keep RemNote open while you use the AI connection.
+3. Start the local bridge on your computer. In this repo, the bridge host is
+   `bridge-host.cjs`; it listens on `http://127.0.0.1:3400` and the RemNote
+   plugin connects back to it over `ws://127.0.0.1:3401`.
+4. Check the bridge health page. If `http://127.0.0.1:3400/health` says
+   `pluginConnected: true`, RemNote and the local bridge can see each other.
+5. In your AI app's MCP settings, add a local MCP server that forwards requests
+   to `http://127.0.0.1:3400`.
+
+Most MCP-compatible AI apps use a config that looks roughly like this:
+
+```json
+{
+  "mcpServers": {
+    "remnote": {
+      "command": "node",
+      "args": ["C:/path/to/your/remnote-mcp-server/index.js"],
+      "env": {
+        "ANTIGRAVITY_REMNOTE_HOST_URL": "http://127.0.0.1:3400"
+      }
+    }
+  }
+}
+```
+
+Exact menus, file paths, and environment variable names depend on the MCP server
+you use. The important idea is simple: the AI starts a small MCP server, that
+server talks to the local RemNote bridge, and the bridge talks to the RemNote
+plugin. After setup, try asking your AI: "check my RemNote connection", "search
+my RemNote for X", or "create a note in RemNote about Y".
+
+If RemNote is closed, the plugin is disabled, or the local bridge is not running,
+your AI will not be able to read or update RemNote.
+
 This is a production-oriented fork of
 [`quentintou/remnote-mcp-bridge`](https://github.com/quentintou/remnote-mcp-bridge)
 with a much larger typed action surface for reading, writing, debugging,

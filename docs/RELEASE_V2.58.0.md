@@ -101,6 +101,13 @@ The package contains the stable marketplace ID
 existing public listing; do not upload a local-dev package with
 `remnote-mcp-bridge-y-edition-dev-2`.
 
+Important: RemNote's **Build -> Upload plugin** flow may reject this package
+with `A plugin with ID remnote-mcp-bridge-y-edition already exists`. In that
+case, do not choose a new ID. That upload path is acting as a new listing
+submission, not an existing-listing update. Keep the stable ID and use the
+listing owner/manage path or RemNote review/support channel to update the
+existing marketplace entry.
+
 ## Known Boundaries
 
 - This is not a raw internal DB writer.

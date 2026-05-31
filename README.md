@@ -24,6 +24,13 @@ The bridge runs locally on your computer. It does not upload your whole
 knowledge base to a third-party service by itself, and direct internal database
 access is kept read-only for diagnostics.
 
+## Sidebar Preview
+
+This is the right sidebar panel you should see when the plugin and local bridge
+are connected:
+
+![MCP Bridge right sidebar connected status](https://raw.githubusercontent.com/riyadist/remnote-mcp-bridge/main/public/screenshots/mcp-bridge-sidebar.png)
+
 ## How To Connect Your AI Assistant
 
 If you are new to MCP, think of the setup like a short chain:

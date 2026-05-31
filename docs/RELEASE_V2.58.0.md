@@ -96,6 +96,11 @@ The script builds with `public/manifest.marketplace.json`, writes
 `PluginZip_v2.58.0_marketplace.zip`, and restores the local development manifest
 and local-dev build after the package is copied.
 
+The package contains the stable marketplace ID
+`remnote-mcp-bridge-y-edition` and `public/logo.svg`. Use this package for the
+existing public listing; do not upload a local-dev package with
+`remnote-mcp-bridge-y-edition-dev-2`.
+
 ## Known Boundaries
 
 - This is not a raw internal DB writer.

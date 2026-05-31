@@ -1,0 +1,42 @@
+{
+  "name": "Personal Semantic Regression Suite",
+  "cases": [
+    {
+      "id": "consciousness_diagram_tr",
+      "query": "bilinc diyagrami",
+      "modes": ["normal", "deep"],
+      "limit": 5,
+      "expectedTop3AnyOf": ["Global Workspace Theory Diagram", "Consciousness"],
+      "forbiddenTop3AnyOf": ["Bilinçli bastırma (supresyon)"],
+      "minTop1SemanticScore": 0.5,
+      "notes": "Turkce diagram niyetinde consciousness/GWT kumesi ustte olmali."
+    },
+    {
+      "id": "gwt_core",
+      "query": "global workspace theory",
+      "modes": ["normal", "deep"],
+      "limit": 5,
+      "expectedTop3AnyOf": ["Global Workspace Theory Diagram", "Global workspace theory links attention, broadcast, and reportability."],
+      "minTop1SemanticScore": 0.7,
+      "notes": "Ana GWT notlari ilk 3 icinde olmali."
+    },
+    {
+      "id": "memory_systems_tr",
+      "query": "hafiza sistemi",
+      "modes": ["normal", "deep"],
+      "limit": 5,
+      "expectedTop3AnyOf": ["Memory Systems", "HAFIZA (MEMORY) SISTEMI", "HAFIZA (MEMORY) SİSTEMİ"],
+      "minTop1SemanticScore": 0.7,
+      "notes": "TR memory systems sorgusunda ana memory systems notlari ustte olmali."
+    },
+    {
+      "id": "retrieval_workflow",
+      "query": "retrieval memory workflow",
+      "modes": ["normal", "deep"],
+      "limit": 5,
+      "expectedTop3AnyOf": ["AI Memory Workflow Quick Test", "AI Memory Workflow Quick Test 2"],
+      "minTop1SemanticScore": 0.5,
+      "notes": "Retrieval workflow sorgusunda workflow note'lari ilk 3 icinde olmali."
+    }
+  ]
+}

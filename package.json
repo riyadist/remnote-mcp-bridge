@@ -1,8 +1,8 @@
 {
   "private": true,
   "name": "remnote-mcp-bridge-y-edition",
-  "version": "1.1.4",
-  "description": "RemNote MCP Bridge fork with extended note formatting, table workflows, and background bridge runtime.",
+  "version": "2.58.0",
+  "description": "Production-grade RemNote MCP Bridge with typed vault export, graph, flashcard, safe migration, and read-only DB diagnostic workflows.",
   "repository": {
     "type": "git",
     "url": "https://github.com/riyadist/remnote-mcp-bridge.git"
@@ -10,11 +10,12 @@
   "license": "MIT",
   "scripts": {
     "check-types": "tsc",
-    "dev": "cross-env NODE_ENV=development webpack-dev-server --port 8081 --color --progress --no-open",
-    "build": "npx remnote-plugin validate && shx rm -rf dist && cross-env NODE_ENV=production webpack --color --progress && cd dist && bestzip ../PluginZip.zip ./*"
+    "dev": "cross-env NODE_ENV=development webpack-dev-server --port 8080 --color --no-open",
+    "build": "npx remnote-plugin validate && node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && cross-env NODE_ENV=production webpack --color && cd dist && bestzip ../PluginZip.zip ./*"
   },
   "dependencies": {
     "@remnote/plugin-sdk": "^0.0.46",
+    "classic-level": "^3.0.0",
     "react": "^17.0.2",
     "react-dom": "^17.0.2"
   },

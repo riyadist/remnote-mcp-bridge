@@ -19,6 +19,10 @@ const SANDBOX_SUFFIX = '-sandbox';
 
 const config = {
   mode: isProd ? 'production' : 'development',
+  watchOptions: {
+    poll: 1000,
+    aggregateTimeout: 300,
+  },
   entry: glob.sync('./src/widgets/**/*.tsx').reduce((obj, el) => {
     const rel = path
       .relative('src/widgets', el)
@@ -76,7 +80,7 @@ const config = {
 
       const s = document.createElement('script');
       s.type = "module";
-      s.src = widgetName+"${SANDBOX_SUFFIX}.js";
+      s.src = widgetName+"${SANDBOX_SUFFIX}.js?v=20260312-8080";
       document.body.appendChild(s);
       </script>
     `,
@@ -111,7 +115,7 @@ if (isProd) {
 } else {
   // for more information, see https://webpack.js.org/configuration/dev-server
   config.devServer = {
-    port: 8081,
+    port: 8080,
     open: true,
     hot: true,
     compress: true,

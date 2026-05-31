@@ -1,115 +1,229 @@
 # RemNote MCP Bridge (Y Edition)
 
-Fork of `quentintou/remnote-mcp-bridge`, extended for production-style MCP workflows and richer RemNote editing operations.
+Current release target: **v2.58.0**
 
-## Why this fork
+This is a production-oriented fork of
+[`quentintou/remnote-mcp-bridge`](https://github.com/quentintou/remnote-mcp-bridge).
+It connects RemNote to MCP clients and AI assistants through a local bridge,
+with a much larger typed action surface for reading, writing, debugging,
+exporting, and safely migrating a RemNote knowledge base.
 
-This fork keeps the original core features and adds:
+## Public Status
 
-- Background bridge lifecycle (connection does not depend on opening the sidebar widget)
-- Better protocol compatibility (custom action payloads + JSON-RPC 2.0 style requests)
-- Richer RemNote operations (structured summaries, table/property workflows, note move/delete/overwrite)
-- Better handling for Turkish text matching and search fallback
-- Cleaner local development defaults for localhost plugin work
+The RemNote marketplace listing may still show the older **v1.1.4** text until
+the marketplace package is republished. The GitHub source in this branch is the
+new **v2.58.0** line.
 
-## Version baseline
+Important IDs:
 
-- Original baseline in this fork: `v1.1.0` (`origin/main`, commit `2caea76`)
-- Current fork target: `v1.1.4`
-- Detailed technical diff: `docs/COMPARISON_V1.1.0_TO_V1.1.4.md`
+- Marketplace plugin ID: `remnote-mcp-bridge-y-edition`
+- Local development plugin ID: `remnote-mcp-bridge-y-edition-dev-2`
+- Local manifest URL: `http://localhost:8080/manifest.json`
+- Local bridge HTTP: `http://127.0.0.1:3400`
+- Local bridge WebSocket: `ws://127.0.0.1:3401`
 
-## Feature set
+Use `public/manifest.marketplace.json` when preparing a marketplace package for
+the existing public plugin ID. The default `public/manifest.json` remains the
+local development manifest so it does not collide with the marketplace install
+inside the same RemNote profile.
 
-### Preserved from original
+## What Changed Since v1.1.4
 
-- `create_note`
-- `append_journal`
-- `search`
-- `read_note`
-- `update_note`
-- `get_status`
+The old marketplace page described a small fork with roughly 19 bridge actions.
+The current bridge exposes **150 covered actions** with typed payloads, structured
+results, and smoke coverage.
 
-### Added in this fork
+Major additions:
 
-- `move_note`
-- `delete_note`
-- `overwrite_note_content`
-- `create_structured_summary`
-- `create_table`
-- `create_property`
-- `set_tag_property_value`
-- `count_books_table` (debug/validation helper)
-- `count_tagged_rems` (debug helper)
-- `debug_window_context` (debug helper)
-- `debug_focused_page_children_raw` (debug helper)
-- `inspect_rem_relations` (debug helper)
-- `debug_rem_raw_text` (debug helper)
+- Full SDK-visible vault read/export layer:
+  `get_all_rems`, `read_rem_full`, `export_vault_snapshot`,
+  `host_remnote_vault_snapshot_export`, partitioned JSONL exports, query,
+  stats, schema profile, field profile, quality report, diff, and graph export.
+- Safe RemNote editing workflows for notes, tags, properties, templates,
+  tables, folders/documents, portals, sources, references, aliases, flashcards,
+  and practice metadata.
+- Confirmation-gated control actions for higher-risk surfaces:
+  app, window, editor, queue, plugin runtime, events, reader, scheduler,
+  card mutation, RemObject state, and RemObject structure.
+- Read-only forensic/debug tools for RemNote IndexedDB and host-side LevelDB
+  snapshots. These do not write to RemNote internal database files.
+- Capability inspection and SDK gap reporting so agents can see what is
+  supported, partially supported, blocked by SDK, UI-only, or unsafe for direct
+  DB writes.
+- RemNote Doctor, Learning Inbox, Safe Migration Engine, rollback validation,
+  audit log, and dry-run repair planning.
+- RichText tools for Markdown parsing, format inspection, range formatting, and
+  confirmation-gated HTML import.
+- Local host stack that keeps the bridge alive independently of the sidebar
+  widget and exposes health/status endpoints.
 
-## Project structure
+## Capability Map
 
-```text
-public/
-  manifest.json
-src/
-  api/
-    rem-adapter.ts
-  bridge/
-    websocket-client.ts
-  widgets/
-    index.tsx
-    right_sidebar.tsx
-  settings.ts
-  style.css
-  index.css
-docs/
-  COMPARISON_V1.1.0_TO_V1.1.4.md
-  GITHUB_PR_DRAFT.md
-CHANGELOG.md
-CONTRIBUTING.md
+### Read and Export
+
+- `get_all_rems`
+- `read_rem_full`
+- `export_subtree`
+- `export_tag_view`
+- `export_daily_range`
+- `export_graph_edges`
+- `export_vault_snapshot`
+- `host_remnote_vault_snapshot_export`
+- `host_remnote_vault_snapshot_export_partitioned`
+- `host_remnote_vault_export_query`
+- `host_remnote_vault_export_stats`
+- `host_remnote_vault_export_stats_aggregate`
+- `host_remnote_vault_export_schema_profile`
+- `host_remnote_vault_export_field_profile`
+- `host_remnote_vault_quality_report`
+- `host_remnote_vault_export_graph`
+- `host_remnote_vault_export_graph_file`
+- `host_remnote_vault_export_diff`
+
+### Notes, Tags, Tables, and Properties
+
+- `create_note`, `read_note`, `update_note`, `delete_note`
+- `move_note`, `overwrite_note_content`, `list_children`, `open_note`
+- `create_table`, `discover_tables`, `list_table_rows`, `set_table_filter_raw`
+- `create_property`, `get_property_info`, `set_property_type`
+- `set_tag_property_value`, `add_tag_by_id`, `remove_tag_by_id`
+- `create_template`, `apply_template_to_rem`, `set_template_auto_apply`,
+  `apply_tag_auto_template`, `list_tag_templates`
+
+### Graph, References, and Structure
+
+- `create_reference`, `create_portal`, `create_alias`, `create_link_rem`
+- `add_source_to_rem`, `remove_source_from_rem`
+- `add_rem_to_portal`, `remove_rem_from_portal`
+- `inspect_rem_location`, `inspect_rem_relations`,
+  `inspect_rem_graph_context`
+- `control_rem_structure`
+
+### Flashcards and Practice
+
+- `create_flashcard`, `create_cloze_flashcard`, `batch_create_flashcards`
+- `update_flashcard_back`
+- `set_practice_state`
+- `export_practice_queue`
+- `export_card_catalog`
+- `read_card_full`
+- `control_card`
+- `control_practice_queue`
+
+### Runtime, SDK, and Debug
+
+- `get_status`, `reload_plugin`, `capability_inspector`, `sdk_gap_report`
+- `host_remnote_sdk_surface_gap_report`
+- `sdk_namespace_call`, `rem_sdk_call`, `rem_raw_call`
+- `inspect_app_context`, `inspect_editor_context`,
+  `inspect_queue_context`, `inspect_plugin_runtime`,
+  `inspect_focus_context`, `inspect_powerup_registry`
+- `control_app`, `control_window`, `control_editor`,
+  `control_plugin_runtime`, `control_events`, `control_reader`,
+  `control_scheduler`
+- `indexeddb_inventory`, `indexeddb_read_store`
+- `host_remnote_db_inventory`, `host_remnote_db_doctor_scan`,
+  `host_remnote_leveldb_snapshot_scan`, `host_remnote_leveldb_decode`,
+  `host_remnote_leveldb_log_decode`, `host_remnote_leveldb_entity_index`,
+  `host_remnote_leveldb_sdk_map`, `host_remnote_leveldb_graph_export`
+
+## Safety Model
+
+The bridge deliberately separates safe reads from risky writes.
+
+- SDK-visible vault export is the canonical "read the knowledge base" path.
+- Internal DB and LevelDB tools are read-only snapshot/forensic tools.
+- Direct writes to RemNote internal database files are out of scope.
+- Destructive operations require explicit confirmation payloads.
+- Merge/structure operations require an additional destructive confirmation.
+- Safe Migration actions provide dry-run plans, audit logs, and rollback
+  validation before applying large changes.
+
+## Current Validation
+
+Expected v2.58.0 validation:
+
+```powershell
+npm run check-types
+npm run build
+powershell -NoProfile -ExecutionPolicy Bypass -File .\check_action_coverage.ps1 -FailOnUncovered
+powershell -NoProfile -ExecutionPolicy Bypass -File .\test_bridge_actions.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\test_readonly_debug_actions.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\test_flashcard_actions.ps1
 ```
 
-## Local development
+Expected coverage:
+
+```text
+150 action, 150 covered, 0 uncovered
+```
+
+Expected live health:
+
+```text
+pluginConnected = true
+pluginVersion = 2.58.0
+```
+
+## Local Development
 
 ```bash
 npm install
-npm run dev
+npm run build
+powershell -NoProfile -ExecutionPolicy Bypass -File .\update_remnote_bridge.ps1
 ```
 
-Notes:
-- Dev server is configured for `http://localhost:8081`.
-- Manifest URL for RemNote local plugin dev: `http://localhost:8081/manifest.json`.
+The local stack uses:
 
-## Build
+- `bridge-host.cjs` for HTTP `3400` and WebSocket `3401`
+- `static-server.cjs` for the built plugin manifest on `8080`
+- `ensure_local_plugin.ps1` to start missing local services
+- `update_remnote_bridge.ps1` to typecheck/build/reload
+
+Manual health checks:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:3400/health
+Invoke-RestMethod http://127.0.0.1:8080/manifest.json
+```
+
+## Documentation
+
+- Full old-to-new comparison:
+  [`docs/COMPARISON_V1.1.4_TO_V2.58.0.md`](docs/COMPARISON_V1.1.4_TO_V2.58.0.md)
+- User-facing release notes:
+  [`docs/RELEASE_V2.58.0.md`](docs/RELEASE_V2.58.0.md)
+- Legacy v1.1.0 to v1.1.4 comparison:
+  [`docs/COMPARISON_V1.1.0_TO_V1.1.4.md`](docs/COMPARISON_V1.1.0_TO_V1.1.4.md)
+- Operator notes:
+  [`docs/OPERATOR_NOTES.md`](docs/OPERATOR_NOTES.md)
+- vNext personal intelligence spec:
+  [`docs/VNEXT_PERSONAL_INTELLIGENCE_SPEC.md`](docs/VNEXT_PERSONAL_INTELLIGENCE_SPEC.md)
+
+## Build Output
 
 ```bash
 npm run build
 ```
 
 Build output:
-- `PluginZip.zip` is produced from the `dist/` build.
 
-## GitHub contribution flow
+- `PluginZip.zip` is produced from the `dist/` folder.
+- For marketplace publishing, use:
 
-If you want to contribute these changes upstream or present your fork clearly:
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\build_marketplace_package.ps1
+```
 
-1. Push your branch to `https://github.com/riyadist/remnote-mcp-bridge`.
-2. Use `docs/GITHUB_PR_DRAFT.md` as your PR description.
-3. Link `docs/COMPARISON_V1.1.0_TO_V1.1.4.md` in the PR for a full technical breakdown.
-
-## Hygiene
-
-Runtime artifacts are ignored:
-
-- `dev.out.log`
-- `dev.err.log`
-- `dev.pid`
-- `*.pid`
+This temporarily swaps in `public/manifest.marketplace.json`, builds the zip,
+copies it to `PluginZip_v2.58.0_marketplace.zip`, and restores the local
+development manifest and local-dev build.
 
 ## License
 
-MIT (same as upstream).
+MIT, same as upstream.
 
 ## Credits
 
-- Upstream project: https://github.com/quentintou/remnote-mcp-bridge
-- Fork maintainer: https://github.com/riyadist
+- Upstream project: <https://github.com/quentintou/remnote-mcp-bridge>
+- Fork maintainer: <https://github.com/riyadist>

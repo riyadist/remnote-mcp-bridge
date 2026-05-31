@@ -2,8 +2,12 @@ node_modules
 .DS_Store
 dist
 dist-ssr
+.agent/cache/
 *.local
 *.zip
+*.log
+*_result.json
+last_update_result.json
 dev.out.log
 dev.err.log
 dev.pid

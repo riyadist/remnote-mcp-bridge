@@ -1,9 +1,9 @@
 {
   "manifestVersion": 1,
-  "id": "remnote-mcp-bridge-y-edition-dev-2",
-  "name": "MCP Bridge (Y Edition Dev)",
+  "id": "remnote-mcp-bridge-y-edition",
+  "name": "MCP Bridge (Y Edition)",
   "author": "Yavuz Uysal",
-  "description": "Local-dev RemNote MCP Bridge with typed vault export, graph, flashcard, safe migration, and read-only DB diagnostic workflows.",
+  "description": "Production-grade RemNote MCP bridge with typed note, tag, property, template, table, flashcard, graph, vault export, safe migration, and read-only DB diagnostic workflows.",
   "version": {
     "major": 2,
     "minor": 58,

@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "remnote-mcp-bridge-y-edition",
-  "version": "2.58.0",
+  "version": "2.61.0",
   "description": "Production-grade RemNote MCP Bridge with typed vault export, graph, flashcard, safe migration, and read-only DB diagnostic workflows.",
   "repository": {
     "type": "git",
@@ -9,6 +9,8 @@
   },
   "license": "MIT",
   "scripts": {
+    "test:unit": "node --test test_assistant_model_policy.cjs test_assistant_remnote_agent.cjs test_bridge_host_translation_cache.cjs test_bridge_lookup_telemetry.cjs test_context_translator_multiline_markdown.cjs test_explain_selection_host.cjs test_mcp_mutation_safety.cjs test_right_sidebar_translate_debug.cjs test_selection_assistant_sdk.cjs test_selection_assistant.cjs test_smart_images_adapter.cjs test_smart_images_client.cjs test_topic_chat_followup.cjs test_topic_chat_intent.cjs test_topic_chat_research.cjs test_topic_chat_scene.cjs test_translate_selection_50_case_matrix.cjs test_translate_selection_format.cjs test_mcp_safety_regressions.cjs test_runtime_persistence.cjs test_websocket_generation.cjs test_bridge_transport.cjs test_bridge_request_policy.cjs test_bridge_http_integration.cjs",
+    "test:ui": "node --test test_explain_selection_ui.cjs test_selection_assistant_ui.cjs test_popup_pronunciation.cjs test_assistant_keyboard.cjs",
     "check-types": "tsc",
     "dev": "cross-env NODE_ENV=development webpack-dev-server --port 8080 --color --no-open",
     "build": "npx remnote-plugin validate && node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && cross-env NODE_ENV=production webpack --color && cd dist && bestzip ../PluginZip.zip ./*"

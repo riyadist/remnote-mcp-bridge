@@ -15,3 +15,9 @@ dev.pid
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Yerel, kişisel ayarlar ve veriler (depoya girmez)
+local-defaults.json
+test_ogren_fixture.json
+*_result.json
+*.zip

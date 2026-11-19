@@ -1,0 +1,461 @@
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: transparent;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.mydrive-file-card {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  max-width: min(420px, calc(100vw - 28px));
+  margin: 2px 0 0;
+  padding: 3px 8px 3px 6px;
+  color: rgba(229, 233, 242, 0.94);
+  background: rgba(27, 30, 39, 0.88);
+  border: 1px solid rgba(139, 148, 170, 0.48);
+  border-radius: 6px;
+  text-decoration: none;
+  vertical-align: middle;
+  box-shadow: inset 2px 0 0 rgba(26, 115, 232, 0.95);
+}
+
+.mydrive-file-card:hover {
+  background: rgba(38, 43, 56, 0.94);
+  border-color: rgba(160, 169, 190, 0.64);
+}
+
+.mydrive-file-card__icon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 25px;
+  height: 22px;
+  color: #ffffff;
+  background: #5b6cff;
+  border-radius: 5px;
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.mydrive-file-card__icon--md,
+.mydrive-file-card__icon--text,
+.mydrive-file-card__icon--code,
+.mydrive-file-card__icon--data {
+  background: #16a3d8;
+}
+
+.mydrive-file-card__icon--pdf {
+  background: #5b6cff;
+}
+
+.mydrive-file-card__icon--image {
+  background: #34a853;
+}
+
+.mydrive-file-card__icon--archive,
+.mydrive-file-card__icon--app {
+  background: #f97316;
+}
+
+.mydrive-file-card__icon--audio,
+.mydrive-file-card__icon--video {
+  background: #a855f7;
+}
+
+.mydrive-file-card__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 560;
+}
+
+.mydrive-file-card__badge {
+  flex: 0 0 auto;
+  color: #c7d2fe;
+  font-size: 11px;
+  font-weight: 680;
+}
+
+.mydrive-popup {
+  box-sizing: border-box;
+  width: min(560px, calc(100vw - 24px));
+  color: #f9fafb;
+  background: #2f3039;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.38);
+  overflow: hidden;
+}
+
+.mydrive-popup *,
+.mydrive-popup *::before,
+.mydrive-popup *::after {
+  box-sizing: border-box;
+}
+
+.mydrive-popup__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 0 12px;
+}
+
+.mydrive-popup__tabs {
+  display: flex;
+  align-items: center;
+  min-height: 58px;
+}
+
+.mydrive-popup__tab {
+  height: 58px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #ffffff;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  font-size: 18px;
+  font-weight: 650;
+  padding: 0 10px;
+}
+
+.mydrive-popup__tab--active {
+  border-bottom-color: #7c8cff;
+}
+
+.mydrive-popup__upload-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid #f9fafb;
+  border-radius: 5px;
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.mydrive-popup__upload-icon::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-left: 2px solid #f9fafb;
+  border-top: 2px solid #f9fafb;
+  transform: rotate(45deg) translate(1px, 1px);
+}
+
+.mydrive-popup__upload-icon::after {
+  content: "";
+  position: absolute;
+  width: 2px;
+  height: 10px;
+  background: #f9fafb;
+  top: 5px;
+  left: 10px;
+}
+
+.mydrive-popup__close,
+.mydrive-popup__settings-actions button,
+.mydrive-popup__choose {
+  cursor: pointer;
+}
+
+.mydrive-popup__close {
+  width: 34px;
+  height: 34px;
+  color: #f9fafb;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  position: relative;
+}
+
+.mydrive-popup__close:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.mydrive-popup__close::before,
+.mydrive-popup__close::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 16px;
+  width: 14px;
+  height: 2px;
+  background: #f9fafb;
+  border-radius: 999px;
+}
+
+.mydrive-popup__close::before {
+  transform: rotate(45deg);
+}
+
+.mydrive-popup__close::after {
+  transform: rotate(-45deg);
+}
+
+.mydrive-popup__settings {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  padding: 14px 26px 2px;
+}
+
+.mydrive-popup__field {
+  display: grid;
+  gap: 5px;
+  color: #c7c9d1;
+  font-size: 12px;
+}
+
+.mydrive-popup__field input {
+  height: 34px;
+  color: #f9fafb;
+  background: #20212a;
+  border: 1px solid #50546a;
+  border-radius: 6px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.mydrive-popup__settings-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mydrive-popup__settings-actions button {
+  height: 32px;
+  color: #f9fafb;
+  background: #3f465c;
+  border: 1px solid #677095;
+  border-radius: 6px;
+  padding: 0 12px;
+}
+
+.mydrive-popup__settings-actions button:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+.mydrive-popup__connection {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 38px;
+  padding: 8px 10px;
+  background: #242834;
+  border: 1px solid #464f65;
+  border-radius: 7px;
+}
+
+.mydrive-popup__status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.14);
+}
+
+.mydrive-popup__connection--online .mydrive-popup__status-dot {
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.16);
+}
+
+.mydrive-popup__connection--offline .mydrive-popup__status-dot {
+  background: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16);
+}
+
+.mydrive-popup__connection-text {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+  color: #aeb3c2;
+  font-size: 11px;
+}
+
+.mydrive-popup__connection-text span {
+  color: #d7dbea;
+  font-weight: 700;
+}
+
+.mydrive-popup__connection-text strong {
+  color: #f9fafb;
+  font-size: 12px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.mydrive-popup__hint {
+  color: #aeb3c2;
+  font-size: 12px;
+}
+
+.mydrive-popup__manual-auth {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  background: #252936;
+  border: 1px solid #4e5876;
+  border-radius: 7px;
+}
+
+.mydrive-popup__manual-auth a,
+.mydrive-popup__manual-auth button {
+  justify-self: start;
+  min-height: 30px;
+  color: #f9fafb;
+  background: #3f465c;
+  border: 1px solid #677095;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.mydrive-popup__manual-auth a:hover,
+.mydrive-popup__manual-auth button:hover {
+  background: #4b5470;
+}
+
+.mydrive-popup__manual-auth input {
+  width: 100%;
+  height: 30px;
+  color: #cbd5e1;
+  background: #191b24;
+  border: 1px solid #4b5568;
+  border-radius: 6px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+.mydrive-popup__dropzone {
+  margin: 14px 26px 12px;
+  min-height: 128px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 14px;
+  border: 2px dashed #8291ff;
+  border-radius: 10px;
+  background: #222631;
+  text-align: center;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.mydrive-popup__dropzone--active {
+  border-color: #93c5fd;
+  background: #1f2937;
+}
+
+.mydrive-popup__file-icons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.mydrive-popup__file-icons span {
+  display: inline-grid;
+  place-items: center;
+  min-width: 34px;
+  height: 30px;
+  color: #ffffff;
+  background: #4660ff;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.mydrive-popup__file-icons span:nth-child(2) {
+  background: #1b9bd7;
+}
+
+.mydrive-popup__file-icons span:nth-child(3) {
+  background: #f97316;
+}
+
+.mydrive-popup__drop-title {
+  color: #ffffff;
+  font-size: 17px;
+  font-weight: 620;
+}
+
+.mydrive-popup__choose {
+  color: #8ea0ff;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  text-decoration: underline;
+}
+
+.mydrive-popup__file-input {
+  display: none;
+}
+
+.mydrive-popup__busy {
+  padding: 0 26px 10px;
+  color: #c7d2fe;
+  font-size: 13px;
+}
+
+.mydrive-popup__rows {
+  display: grid;
+  gap: 8px;
+  max-height: 190px;
+  overflow: auto;
+  padding: 0 26px 18px;
+}
+
+.mydrive-popup__row {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  background: #20232d;
+  border: 1px solid #464b5d;
+  border-radius: 7px;
+}
+
+.mydrive-popup__row-name {
+  color: #f9fafb;
+  font-size: 13px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.mydrive-popup__row-meta,
+.mydrive-popup__row a {
+  color: #aeb3c2;
+  font-size: 12px;
+}
+
+.mydrive-popup__row-error {
+  color: #fca5a5;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.mydrive-popup__progress {
+  height: 5px;
+  background: #111827;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.mydrive-popup__progress > div {
+  height: 100%;
+  background: #7c8cff;
+  transition: width 120ms ease;
+}

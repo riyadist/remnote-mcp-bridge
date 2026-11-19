@@ -1,7 +1,7 @@
 param(
     [string]$HostBaseUrl = 'http://127.0.0.1:3400',
     [string]$TargetRemId = 'ubgqlPRB62rYIoGn1',
-    [string]$ExpectedPluginVersion = '2.58.0',
+    [string]$ExpectedPluginVersion = (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'package.json') -Raw | ConvertFrom-Json).version,
     [string]$OutputPath = ''
 )
 
@@ -60,6 +60,7 @@ $result = [ordered]@{
     inspect_native_icon_state = $null
     inspect_note_style = $null
     inspect_rem_relations = $null
+    host_remnote_rontgen_snapshot = $null
     debug_rem_raw_text = $null
     get_rem_tags = $null
     count_tagged_rems = $null
@@ -67,6 +68,16 @@ $result = [ordered]@{
 
 $result.status = Invoke-BridgeAction -Action 'get_status'
 Assert-True ($result.status.pluginVersion -eq $ExpectedPluginVersion) "Unexpected plugin version: $($result.status.pluginVersion)"
+
+$result.host_remnote_rontgen_snapshot = Invoke-BridgeAction -Action 'host_remnote_rontgen_snapshot' -Payload @{
+    includeDbInventory = $false
+    includeSdkSurface = $false
+    includeLogTails = $false
+    captureConsoleMs = 0
+}
+Assert-True ($result.host_remnote_rontgen_snapshot.readOnly -eq $true) 'host_remnote_rontgen_snapshot is not read-only.'
+Assert-True ($result.host_remnote_rontgen_snapshot.mutationApplied -eq $false) 'host_remnote_rontgen_snapshot reported mutation.'
+Assert-True ($result.host_remnote_rontgen_snapshot.mode -eq 'host_remnote_rontgen_snapshot') 'host_remnote_rontgen_snapshot mode mismatch.'
 
 $payload = @{ remId = $TargetRemId }
 

@@ -1,16 +1,16 @@
 {
   "manifestVersion": 1,
-  "id": "remnote-mcp-bridge-y-edition",
-  "name": "MCP Bridge (Y Edition)",
+  "id": "remnote-mcp-bridge-y-edition-dev",
+  "name": "MCP Bridge (Y Edition Dev)",
   "author": "Yavuz Uysal",
-  "description": "Connect RemNote to AI assistants so they can search, organize, export, and safely update your notes through a local bridge.",
+  "description": "Connect RemNote to AI assistants via a local bridge. Optional sections in settings: lessons, PDF reading view, No Bullet, alarms, Drive upload, translation.",
   "version": {
     "major": 2,
-    "minor": 58,
+    "minor": 61,
     "patch": 0
   },
   "repoUrl": "https://github.com/riyadist/remnote-mcp-bridge",
-  "enableOnMobile": false,
+  "enableOnMobile": true,
   "requestNative": false,
   "requiredScopes": [
     {

@@ -8,6 +8,19 @@ $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $stdoutLog = Join-Path $root 'bridge-host.stdout.log'
 $stderrLog = Join-Path $root 'bridge-host.stderr.log'
 
+function Set-DefaultEnv {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Name,
+        [Parameter(Mandatory = $true)]
+        [string]$Value
+    )
+
+    if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($Name, 'Process'))) {
+        [Environment]::SetEnvironmentVariable($Name, $Value, 'Process')
+    }
+}
+
 $httpExisting = Get-NetTCPConnection -LocalPort $HttpPort -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
 $wsExisting = Get-NetTCPConnection -LocalPort $WsPort -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($httpExisting -and $wsExisting) {
@@ -23,6 +36,11 @@ if ($httpExisting -and $wsExisting) {
 
 $env:REMNOTE_BRIDGE_HTTP_PORT = "$HttpPort"
 $env:REMNOTE_BRIDGE_WS_PORT = "$WsPort"
+Set-DefaultEnv -Name 'REMNOTE_TRANSLATE_CODEX_MODEL' -Value 'gpt-5.6-sol'
+Set-DefaultEnv -Name 'REMNOTE_TRANSLATE_QUICK_CODEX_MODEL' -Value 'gpt-5.3-codex-spark'
+Set-DefaultEnv -Name 'REMNOTE_TRANSLATE_TOPIC_CHAT_QUICK_MODEL' -Value 'gpt-5.3-codex-spark'
+Set-DefaultEnv -Name 'REMNOTE_TRANSLATE_WARMUP' -Value '1'
+Set-DefaultEnv -Name 'REMNOTE_CODEX_DISABLED_FEATURES' -Value 'plugins,remote_plugin,apps,browser_use,browser_use_external,computer_use,image_generation,in_app_browser,tool_search'
 $process = Start-Process -FilePath 'node.exe' `
     -ArgumentList 'bridge-host.cjs' `
     -WorkingDirectory $root `

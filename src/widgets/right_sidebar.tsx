@@ -8,6 +8,9 @@
 
 import { renderWidget, usePlugin } from '@remnote/plugin-sdk';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { fetchPluginUpdateInfo, formatPluginUpdateInfo } from '../api/plugin-update-info';
+import { pluginKeyHeaders } from '../core/host-key';
+import { PLUGIN_VERSION } from '../version';
 import {
   STORAGE_RUNTIME_STATUS,
   type BridgeRuntimeSnapshot,
@@ -66,6 +69,7 @@ interface EventsResponse {
   ok: boolean;
   stats: SessionStats;
   recentActions: HostAction[];
+  translateDebug?: TranslateDebugSnapshot;
   runtime?: RuntimeStatus;
 }
 
@@ -83,11 +87,49 @@ interface RuntimeStatus {
   } | null;
 }
 
-const LOCAL_PLUGIN_VERSION = '2.58.0';
+interface TranslateDebugStage {
+  name: string;
+  label?: string;
+  status: 'ok' | 'error' | 'running' | string;
+  durationMs?: number;
+  errorClass?: string;
+}
+
+interface TranslateDebugTrace {
+  traceId: string;
+  status: 'ok' | 'error' | 'running' | string;
+  startedAt?: string;
+  endedAt?: string;
+  durationMs?: number;
+  source?: string;
+  model?: string;
+  input?: {
+    selectionMode?: string;
+    selectedWordCount?: number;
+  } | null;
+  output?: {
+    selectionMode?: string;
+  } | null;
+  stages?: TranslateDebugStage[];
+  error?: {
+    errorClass?: string;
+    stage?: string;
+    message?: string;
+    advice?: string;
+  } | null;
+}
+
+interface TranslateDebugSnapshot {
+  logPath?: string;
+  latest?: TranslateDebugTrace | null;
+  traces?: TranslateDebugTrace[];
+}
+
+const LOCAL_PLUGIN_VERSION = PLUGIN_VERSION;
 const HOST_HEALTH_URL = 'http://127.0.0.1:3400/health';
 const HOST_EVENTS_URL = 'http://127.0.0.1:3400/events';
-const HOST_MANIFEST_URL = 'http://127.0.0.1:8080/manifest.json';
-const HOST_MANIFEST_LABEL = '127.0.0.1:8080';
+const HOST_MANIFEST_URL = new URL('manifest.json', window.location.href).href;
+const HOST_MANIFEST_LABEL = HOST_MANIFEST_URL;
 const HOST_POLL_MS = 10000;
 
 function formatManifestVersion(manifest: ManifestResponse | null): string {
@@ -110,9 +152,11 @@ function MCPBridgeWidget() {
     errors: 0,
   });
   const [manifestVersion, setManifestVersion] = useState<string>('checking');
-  const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
+  const [pluginUpdateInfo, setPluginUpdateInfo] = useState(() => formatPluginUpdateInfo(null, LOCAL_PLUGIN_VERSION));
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [hostFetchError, setHostFetchError] = useState('');
+  const [translateDebug, setTranslateDebug] = useState<TranslateDebugSnapshot | null>(null);
+  const [isTranslateDebugExpanded, setTranslateDebugExpanded] = useState<boolean>(false);
   const lastStatusRef = useRef<ConnectionStatus>('connecting');
 
   const addLog = useCallback((message: string, level: LogEntry['level'] = 'info') => {
@@ -161,11 +205,18 @@ function MCPBridgeWidget() {
 
   const refreshStatus = useCallback(async (silent = false) => {
     try {
+      // Written device-locally since 2.60.8; older builds wrote synced storage.
       const storedSnapshot =
-        (await plugin.storage.getSynced<BridgeRuntimeSnapshot>(STORAGE_RUNTIME_STATUS)) || null;
+        (await plugin.storage.getLocal<BridgeRuntimeSnapshot>(STORAGE_RUNTIME_STATUS))
+        || (await plugin.storage.getSynced<BridgeRuntimeSnapshot>(STORAGE_RUNTIME_STATUS))
+        || null;
       const hadStorageSnapshot = applyRuntimeSnapshot(storedSnapshot);
 
-      const manifestResponse = await fetch(HOST_MANIFEST_URL).catch(() => null);
+      const [manifestResponse, updateInfo] = await Promise.all([
+        fetch(HOST_MANIFEST_URL).catch(() => null),
+        fetchPluginUpdateInfo(LOCAL_PLUGIN_VERSION),
+      ]);
+      setPluginUpdateInfo(updateInfo);
 
       if (manifestResponse && manifestResponse.ok) {
         const manifest = (await manifestResponse.json()) as ManifestResponse;
@@ -175,9 +226,10 @@ function MCPBridgeWidget() {
       }
 
       try {
+        const keyHeaders = await pluginKeyHeaders(plugin);
         const [healthResponse, eventsResponse] = await Promise.all([
-          fetch(HOST_HEALTH_URL),
-          fetch(HOST_EVENTS_URL),
+          fetch(HOST_HEALTH_URL, { headers: keyHeaders }),
+          fetch(HOST_EVENTS_URL, { headers: keyHeaders }),
         ]);
 
         if (!healthResponse.ok) {
@@ -189,8 +241,8 @@ function MCPBridgeWidget() {
 
         const health = (await healthResponse.json()) as HealthResponse;
         const events = (await eventsResponse.json()) as EventsResponse;
-        setRuntime(events.runtime || health.runtime || null);
         setHostFetchError('');
+        setTranslateDebug(events.translateDebug || null);
 
         const nextStatus: ConnectionStatus = health.pluginConnected ? 'connected' : 'disconnected';
         const statusChanged = nextStatus !== lastStatusRef.current;
@@ -237,6 +289,7 @@ function MCPBridgeWidget() {
         addLog('Manual status refresh', 'info');
       }
     } catch (error) {
+      setPluginUpdateInfo(formatPluginUpdateInfo(null, LOCAL_PLUGIN_VERSION));
       const statusChanged = lastStatusRef.current !== 'error';
       setStatus('error');
       lastStatusRef.current = 'error';
@@ -274,21 +327,6 @@ function MCPBridgeWidget() {
     }, 250);
   }, [addLog]);
 
-  const openPersonalIntelligenceRoot = useCallback(async () => {
-    try {
-      const rem = await plugin.rem.findByName(['Personal Intelligence OS'], null);
-      if (!rem) {
-        addLog('Personal Intelligence OS not found', 'warn');
-        return;
-      }
-      await plugin.window.openRem(rem);
-      addLog('Opened Personal Intelligence OS', 'success');
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      addLog(`Failed to open Personal Intelligence OS: ${msg}`, 'error');
-    }
-  }, [addLog, plugin.rem, plugin.window]);
-
   useEffect(() => {
     refreshStatus(true).catch(() => {});
     const timer = setInterval(() => {
@@ -308,12 +346,31 @@ function MCPBridgeWidget() {
     manifestVersion !== 'checking' &&
     manifestVersion !== 'offline' &&
     manifestVersion !== LOCAL_PLUGIN_VERSION;
-  const autoBuilderSeen = runtime?.autoBuilder?.seen ?? false;
-  const autoBuilderLastWrite = runtime?.autoBuilder?.lastWriteTime
-    ? new Date(runtime.autoBuilder.lastWriteTime).toLocaleString()
-    : 'unknown';
-  const lastUpdateSummary = runtime?.lastUpdate;
-
+  const latestTranslateTrace = translateDebug?.latest || null;
+  const latestTranslateStages = (latestTranslateTrace?.stages || []).slice(-8);
+  const latestTranslateStatus = latestTranslateTrace?.status || 'none';
+  const latestTranslateStatusColor =
+    latestTranslateStatus === 'ok'
+      ? '#16a34a'
+      : latestTranslateStatus === 'error'
+        ? '#dc2626'
+        : '#6b7280';
+  const latestTranslateMode =
+    latestTranslateTrace?.output?.selectionMode || latestTranslateTrace?.input?.selectionMode || 'unknown';
+  const latestTranslateWordCount =
+    typeof latestTranslateTrace?.input?.selectedWordCount === 'number'
+      ? ` (${latestTranslateTrace.input.selectedWordCount} words)`
+      : '';
+  const latestTranslateTime =
+    typeof latestTranslateTrace?.durationMs === 'number' ? `${latestTranslateTrace.durationMs} ms` : 'n/a';
+  const latestTranslateTraceLabel = latestTranslateTrace?.traceId
+    ? latestTranslateTrace.traceId.length > 18
+      ? `...${latestTranslateTrace.traceId.slice(-14)}`
+      : latestTranslateTrace.traceId
+    : 'No trace yet';
+  const latestTranslateSummary = latestTranslateTrace
+    ? `${latestTranslateMode}${latestTranslateWordCount} | ${latestTranslateTime} | ${latestTranslateTraceLabel}`
+    : 'No translation trace yet';
   return (
     <div style={{ padding: '12px', fontFamily: 'system-ui, sans-serif', fontSize: '13px' }}>
       <div
@@ -367,7 +424,7 @@ function MCPBridgeWidget() {
         Reconnect
       </button>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '8px', marginBottom: '12px', alignItems: 'center' }}>
         <button
           onClick={reloadPlugin}
           style={{
@@ -384,24 +441,22 @@ function MCPBridgeWidget() {
         >
           Reload Plugin
         </button>
-        <button
-          onClick={() => {
-            openPersonalIntelligenceRoot().catch(() => {});
-          }}
+        <span
+          aria-label="Son eklenti güncellemesi"
+          title={pluginUpdateInfo.title}
           style={{
-            width: '100%',
-            padding: '8px',
-            border: '1px solid #e5e7eb',
-            borderRadius: '6px',
-            backgroundColor: '#ffffff',
-            color: '#374151',
-            cursor: 'pointer',
-            fontSize: '12px',
-            fontWeight: 600,
+            display: 'flex', alignItems: 'center', gap: '4px',
+            minWidth: 0, color: '#4b5563', fontSize: '11px', lineHeight: 1.4,
+            backgroundColor: '#f8fafc', border: '1px solid #e5e7eb',
+            borderRadius: '6px', padding: '4px', boxSizing: 'border-box',
           }}
         >
-          Open PI OS
-        </button>
+          <span aria-hidden="true">ℹ</span>
+          <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
+            <span style={{ display: 'block' }}>Son güncelleme</span>
+            <span style={{ display: 'block' }}>{pluginUpdateInfo.label}</span>
+          </span>
+        </span>
       </div>
 
       <div
@@ -449,22 +504,103 @@ function MCPBridgeWidget() {
           padding: '10px',
           border: '1px solid #e5e7eb',
           borderRadius: '6px',
-          backgroundColor: '#ffffff'
+          backgroundColor: '#ffffff',
         }}
       >
-        <div style={{ fontSize: '11px', fontWeight: 600, marginBottom: '8px', color: '#374151' }}>
-          AUTO BUILDER
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '6px', color: '#4b5563', fontSize: '12px' }}>
-          <span>Builder log</span>
-          <span>{autoBuilderSeen ? 'seen' : 'missing'}</span>
-          <span>Last log write</span>
-          <span>{autoBuilderLastWrite}</span>
-          <span>Last update ok</span>
-          <span>{lastUpdateSummary?.ok ? 'yes' : 'no'}</span>
-          <span>Expected version</span>
-          <span>{lastUpdateSummary?.expectedVersion || 'unknown'}</span>
-        </div>
+        <button
+          type="button"
+          aria-expanded={isTranslateDebugExpanded}
+          aria-controls="translate-debug-details"
+          onClick={() => setTranslateDebugExpanded((value) => !value)}
+          style={{
+            width: '100%',
+            border: 0,
+            padding: 0,
+            background: 'transparent',
+            color: 'inherit',
+            cursor: 'pointer',
+            textAlign: 'left',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'center' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#374151' }}>TRANSLATE DEBUG</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px' }}>
+              <span style={{ fontWeight: 700, color: latestTranslateStatusColor }}>
+                {latestTranslateStatus.toUpperCase()}
+              </span>
+              <span style={{ color: '#6b7280', fontWeight: 700 }}>
+                {isTranslateDebugExpanded ? 'Hide' : 'Show'}
+              </span>
+            </div>
+          </div>
+          <div
+            style={{
+              marginTop: '5px',
+              color: '#6b7280',
+              fontSize: '10px',
+              lineHeight: 1.35,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {latestTranslateSummary}
+          </div>
+        </button>
+        {isTranslateDebugExpanded && latestTranslateTrace ? (
+          <div id="translate-debug-details" style={{ marginTop: '8px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '5px 8px', color: '#4b5563', fontSize: '11px' }}>
+              <span>Trace</span>
+              <span style={{ overflowWrap: 'anywhere' }}>{latestTranslateTrace.traceId}</span>
+              <span>Model</span>
+              <span>{latestTranslateTrace.model || 'unknown'}</span>
+              <span>Source</span>
+              <span>{latestTranslateTrace.source || 'unknown'}</span>
+              <span>Mode</span>
+              <span>
+                {latestTranslateMode}
+                {latestTranslateWordCount}
+              </span>
+              <span>Time</span>
+              <span>{latestTranslateTime}</span>
+            </div>
+            <div style={{ marginTop: '8px', display: 'grid', gap: '5px' }}>
+              {latestTranslateStages.length === 0 ? (
+                <div style={{ color: '#9ca3af', fontSize: '11px' }}>No stage details yet</div>
+              ) : (
+                latestTranslateStages.map((stage, index) => {
+                  const color = stage.status === 'ok' ? '#16a34a' : stage.status === 'error' ? '#dc2626' : '#6b7280';
+                  return (
+                    <div key={`${stage.name}-${index}`} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#4b5563' }}>
+                      <span style={{ width: '12px', color, fontWeight: 700 }}>
+                        {stage.status === 'ok' ? '+' : stage.status === 'error' ? '!' : '-'}
+                      </span>
+                      <span style={{ flex: 1 }}>{stage.label || stage.name}</span>
+                      <span style={{ color: '#6b7280' }}>
+                        {typeof stage.durationMs === 'number' ? `${stage.durationMs} ms` : stage.status}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            {latestTranslateTrace.error ? (
+              <div style={{ marginTop: '8px', padding: '7px 8px', backgroundColor: '#fef2f2', borderRadius: '6px', color: '#991b1b', fontSize: '11px', overflowWrap: 'anywhere' }}>
+                {latestTranslateTrace.error.errorClass || 'ERROR'}: {latestTranslateTrace.error.advice || latestTranslateTrace.error.message || 'Ceviri hatasi'}
+              </div>
+            ) : null}
+            {translateDebug?.logPath ? (
+              <div style={{ marginTop: '8px', color: '#6b7280', fontSize: '10px', overflowWrap: 'anywhere' }}>
+                Log: {translateDebug.logPath}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {isTranslateDebugExpanded && !latestTranslateTrace ? (
+          <div id="translate-debug-details" style={{ marginTop: '8px', color: '#9ca3af', fontSize: '11px' }}>
+            No translation trace yet
+          </div>
+        ) : null}
       </div>
 
       <div

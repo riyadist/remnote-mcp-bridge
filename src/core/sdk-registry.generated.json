@@ -1,0 +1,1150 @@
+{
+ "sdkVersion": "0.0.46",
+ "targets": {
+  "ns:app": {
+   "methods": {
+    "waitForInitialSync": {
+     "class": "blocked",
+     "signature": "() => Promise<void>"
+    },
+    "registerPowerup": {
+     "class": "blocked",
+     "signature": "(args: {"
+    },
+    "registerWidget": {
+     "class": "blocked",
+     "signature": "(fileName: string, location: WidgetLocation, options: WidgetOptions) => Promise<void>"
+    },
+    "unregisterWidget": {
+     "class": "blocked",
+     "signature": "(fileName: string, location: WidgetLocation) => Promise<void>"
+    },
+    "registerCommand": {
+     "class": "blocked",
+     "signature": "(command: Command_DUPE_2) => Promise<void>"
+    },
+    "registerSidebarButton": {
+     "class": "blocked",
+     "signature": "(command: Command_DUPE_2) => Promise<void>"
+    },
+    "registerRemMenuItem": {
+     "class": "blocked",
+     "signature": "(command: Command_DUPE_2) => Promise<void>"
+    },
+    "registerMenuItem": {
+     "class": "blocked",
+     "signature": "(menuItem: PluginMenuItem) => Promise<void>"
+    },
+    "unregisterMenuItem": {
+     "class": "blocked",
+     "signature": "(id: string) => Promise<void>"
+    },
+    "stealKeys": {
+     "class": "blocked",
+     "signature": "(keys: string[]) => Promise<void>"
+    },
+    "releaseKeys": {
+     "class": "blocked",
+     "signature": "(keys: string[]) => Promise<void>"
+    },
+    "registerCSS": {
+     "class": "blocked",
+     "signature": "(id: string, css: string) => Promise<void>"
+    },
+    "registerStatusBarItem": {
+     "class": "blocked",
+     "signature": "(id: string, html: string) => Promise<void>"
+    },
+    "getOperatingSystem": {
+     "class": "read",
+     "signature": "() => Promise<OperatingSystem>"
+    },
+    "getPlatform": {
+     "class": "read",
+     "signature": "() => Promise<Platform>"
+    },
+    "registerCallback": {
+     "class": "blocked",
+     "signature": "<T extends SpecialPluginCallback | undefined = undefined>(callbackId: string, callback: T extends undefined ? CallbackFn : T extends SpecialPluginCallback ? SpecialPluginCallbackInfo[T] : never) => void"
+    },
+    "transaction": {
+     "class": "blocked",
+     "signature": "<F extends () => any>(fn: F) => Promise<Awaited<ReturnType<F>>>"
+    },
+    "toast": {
+     "class": "ui",
+     "signature": "(message: string) => Promise<void>"
+    }
+   }
+  },
+  "ns:card": {
+   "methods": {
+    "findOne": {
+     "class": "read",
+     "signature": "(id?: string) => Promise<Card | undefined>"
+    },
+    "getAll": {
+     "class": "read",
+     "signature": "() => Promise<Card[]>"
+    },
+    "findMany": {
+     "class": "read",
+     "signature": "(ids: string[]) => Promise<Card[]>"
+    }
+   }
+  },
+  "obj:card": {
+   "methods": {
+    "getType": {
+     "class": "read",
+     "signature": "() => Promise<PluginCardType>"
+    },
+    "getRem": {
+     "class": "read",
+     "signature": "() => Promise<RemObject | undefined>"
+    },
+    "remove": {
+     "class": "destructive",
+     "undo": "none",
+     "signature": "() => Promise<void>"
+    },
+    "updateCardRepetitionStatus": {
+     "class": "destructive",
+     "undo": "none",
+     "signature": "(score: QueueInteractionScore) => Promise<void>"
+    }
+   }
+  },
+  "ns:date": {
+   "methods": {
+    "getDailyDoc": {
+     "class": "read",
+     "signature": "(date: Date) => Promise<PluginRem | undefined>"
+    },
+    "getTodaysDoc": {
+     "class": "read",
+     "signature": "() => Promise<PluginRem | undefined>"
+    }
+   }
+  },
+  "ns:editor": {
+   "methods": {
+    "setText": {
+     "class": "destructive",
+     "undo": "none",
+     "signature": "(richText: RichTextInterface) => Promise<void>"
+    },
+    "copy": {
+     "class": "ui",
+     "signature": "() => Promise<SelectionType>"
+    },
+    "cut": {
+     "class": "destructive",
+     "undo": "none",
+     "signature": "() => Promise<SelectionType | undefined>"
+    },
+    "deleteCharacters": {
+     "class": "destructive",
+     "undo": "none",
+     "signature": "(characters: number, direction: -1 | 1) => Promise<any>"
+    },
+    "delete": {
+     "class": "destructive",
+     "undo": "none",
+     "signature": "() => Promise<any>"
+    },
+    "getSelectedRem": {
+     "class": "read",
+     "signature": "() => Promise<RemSelection | undefined>"
+    },
+    "getSelectedText": {
+     "class": "read",
+     "signature": "() => Promise<TextSelection | undefined>"
+    },
+    "getSelection": {
+     "class": "read",
+     "signature": "() => Promise<RemSelection | TextSelection | undefined>"
+    },
+    "selectRem": {
+     "class": "ui",
+     "signature": "(range: RemId[], portalId?: RemId) => Promise<any>"
+    },
+    "selectText": {
+     "class": "ui",
+     "signature": "(range: EditorRange) => Promise<any>"
+    },
+    "collapseSelection": {
+     "class": "ui",
+     "signature": "(to: 'start' | 'end') => Promise<void>"
+    },
+    "undo": {
+     "class": "destructive",
+     "undo": "none",
+     "signature": "() => Promise<void>"
+    },
+    "redo": {
+     "class": "destructive",
+     "undo": "none",
+     "signature": "() => Promise<void>"
+    },
+    "moveCaret": {
+     "class": "ui",
+     "signature": "(amount: number, unit: MoveUnit) => Promise<void>"
+    },
+    "moveCaretVertical": {
+     "class": "ui",
+     "signature": "(direction: -1 | 1) => Promise<any>"
+    },
+    "getCaretPosition": {
+     "class": "read",
+     "signature": "() => Promise<DOMRect | undefined>"
+    },
+    "insertPlainText": {
+     "class": "destructive",
+     "undo": "none",
+     "signature": "(string: string) => Promise<void>"
+    },
+    "insertRichText": {
+     "class": "destructive",
+     "undo": "none",
+     "signature": "(richText: RichTextInterface) => Promise<void>"
+    },
+    "insertMarkdown": {
+     "class": "destructive",
+     "undo": "none",
+     "signature": "(markdown: string) => Promise<void>"
+    },
+    "getFocusedEditorText": {
+     "class": "read",
+     "signature": "() => Promise<RichTextInterface | undefined>"
+    }
+   }
+  },
+  "ns:event": {
+   "methods": {
+    "addListener": {
+     "class": "blocked",
+     "signature": "(eventId: AppEvent, listenerKey: AppEventListerKey, callback: EventCallbackFn) => void"
+    },
+    "removeListener": {
+     "class": "blocked",
+     "signature": "(eventId: AppEvent, listenerKey: AppEventListerKey, callback?: EventCallbackFn) => void"
+    }
+   }
+  },
+  "ns:focus": {
+   "methods": {
+    "getFocusedRem": {
+     "class": "read",
+     "signature": "() => Promise<PluginRem | undefined>"
+    },
+    "getFocusedPortal": {
+     "class": "read",
+     "signature": "() => Promise<PluginRem | undefined>"
+    }
+   }
+  },
+  "ns:kb": {
+   "methods": {
+    "call": {
+     "class": "blocked",
+     "signature": "(methodName: string, args: Record<string, any>) => Promise<any>"
+    },
+    "getCurrentKnowledgeBaseData": {
+     "class": "read",
+     "signature": "() => Promise<{"
+    },
+    "isPrimaryKnowledgeBase": {
+     "class": "read",
+     "signature": "() => Promise<boolean>"
+    }
+   }
+  },
+  "ns:messaging": {
+   "methods": {
+    "broadcast": {
+     "class": "blocked",
+     "signature": "(message: any) => Promise<void>"
+    }
+   }
+  },
+  "ns:powerup": {
+   "methods": {
+    "getPowerupByCode": {
+     "class": "read",
+     "signature": "(powerupCode: BuiltInPowerupCodes | string) => Promise<RemObject | undefined>"
+    },
+    "getPowerupSlotByCode": {
+     "class": "read",
+     "signature": "GetPowerupSlotByCodeOverload"
+    }
+   }
+  },
+  "ns:queue": {
+   "methods": {
+    "getAverageTimePerCard": {
+     "class": "read",
+     "signature": "() => Promise<number>"
+    },
+    "getCurrentQueueScreenType": {
+     "class": "read",
+     "signature": "() => Promise<QueueItemType | undefined>"
+    },
+    "goBackToPreviousCard": {
+     "class": "ui",
+     "signature": "() => Promise<void>"
+    },
+    "hasRevealedAnswer": {
+     "class": "read",
+     "signature": "() => Promise<boolean>"
+    },
+    "showAnswer": {
+     "class": "ui",
+     "signature": "() => Promise<void>"
+    },
+    "rateCurrentCard": {
+     "class": "destructive",
+     "undo": "none",
+     "signature": "(score: QueueInteractionScore) => Promise<void>"
+    },
+    "isTypeAnswerEnabled": {
+     "class": "read",
+     "signature": "() => Promise<boolean | undefined>"
+    },
+    "getCurrentCard": {
+     "class": "read",
+     "signature": "() => Promise<Card | undefined>"
+    },
+    "getNumRemainingCards": {
+     "class": "read",
+     "signature": "() => Promise<number | undefined>"
+    },
+    "getCurrentStreak": {
+     "class": "read",
+     "signature": "() => Promise<number | undefined>"
+    },
+    "removeCurrentCardFromQueue": {
+     "class": "ui",
+     "signature": "(addToBackStack?: boolean) => Promise<void>"
+    },
+    "inLookbackMode": {
+     "class": "read",
+     "signature": "() => Promise<boolean | undefined>"
+    }
+   }
+  },
+  "ns:reader": {
+   "methods": {
+    "addHighlight": {
+     "class": "destructive",
+     "undo": "none",
+     "signature": "(): Promise<RemObject | undefined>;"
+    }
+   }
+  },
+  "obj:rem": {
+   "methods": {
+    "setTableFilter": {
+     "class": "destructive",
+     "undo": "none",
+     "signature": "(filter: SearchPortalQuery) => Promise<void>"
+    },
+    "isTable": {
+     "class": "read",
+     "signature": "() => Promise<any>"
+    },
+    "allRemInFolderQueue": {
+     "class": "read",
+     "signature": "() => Promise<RemObject[]>"
+    },
+    "positionAmongstSiblings": {
+     "class": "read",
+     "signature": "(portalId?: string) => Promise<number | undefined>"
+    },
+    "positionAmongstVisibleSiblings": {
+     "class": "read",
+     "signature": "(portalId?: string) => Promise<number | undefined>"
+    },
+    "hasPowerup": {
+     "class": "read",
+     "signature": "(powerupCode: BuiltInPowerupCodes | string) => Promise<boolean>"
+    },
+    "getHiddenExplicitlyIncludedState": {
+     "class": "read",
+     "signature": "(portalId?: string) => Promise<'hidden' | 'included' | 'none' | undefined>"
+    },
+    "setHiddenExplicitlyIncludedState": {
+     "class": "destructive",
+     "undo": "none",
+     "signature": "(hiddenExplicitlyIncludedState: 'hidden' | 'included' | 'none', portalId?: string) => Promise<void>"
+    },
+    "getLastPracticed": {
+     "class": "read",
+     "signature": "() => Promise<number>"
+    },
+    "addPowerup": {
+     "class": "write",
+     "undo": "partial",
+     "signature": "(powerupCode: string | BuiltInPowerupCodes) => Promise<void>"
+    },
+    "getLastTimeMovedTo": {
+     "class": "read",
+     "signature": "() => Promise<number>"
+    },
+    "getSchemaVersion": {
+     "class": "read",
+     "signature": "() => Promise<number>"
+    },
+    "embeddedQueueViewMode": {
+     "class": "read",
+     "signature": "() => Promise<boolean>"
+    },
+    "isCollapsed": {
+     "class": "read",
+     "signature": "(portalId: string) => Promise<boolean>"
+    },
+    "setIsCollapsed": {
+     "class": "ui",
+     "signature": "(isCollapsed: boolean, portalId: string) => Promise<boolean>"
+    },
+    "timesSelectedInSearch": {
+     "class": "read",
+     "signature": "() => Promise<number>"
+    },
+    "getPortalType": {
+     "class": "read",
+     "signature": "() => Promise<PORTAL_TYPE>"
+    },
+    "getPortalDirectlyIncludedRem": {
+     "class": "read",
+     "signature": "() => Promise<RemObject[]>"
+    },
+    "getType": {
+     "class": "read",
+     "signature": "() => Promise<RemType>"
+    },
+    "setPowerupProperty": {
+     "class": "destructive",
+     "undo": "none",
+     "signature": "SetPowerupPropertyOverload"
+    },
+    "getPowerupProperty": {
+     "class": "read",
+     "signature": "GetPowerupPropertyOverload"
+    },
+    "getPowerupPropertyAsRem": {
+     "class": "read",
+     "signature": "<PowerupCode extends BuiltInPowerupCodes>(powerupCode: PowerupCode | string, powerupSlot: SlotCodesForPowerup<PowerupCode> | string) => Promise<RemObject | undefined>"
+    },
+    "getTagPropertyAsRem": {
+     "class": "read",
+     "signature": "(propertyId: RemId) => Promise<RemObject | undefined>"
+    },
+    "getPowerupPropertyAsRichText": {
+     "class": "read",
+     "signature": "GetPowerupPropertyAsRichTextOverload"
+    },
+    "setText": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(text: RichTextInterface) => Promise<void>"
+    },
+    "setBackText": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(backText: RichTextInterface | undefined) => Promise<void>"
+    },
+    "getTagPropertyValue": {
+     "class": "read",
+     "signature": "(propertyId: RemId) => Promise<RichTextInterface>"
+    },
+    "getPropertyType": {
+     "class": "read",
+     "signature": "() => Promise<PropertyType | undefined>"
+    },
+    "setTagPropertyValue": {
+     "class": "destructive",
+     "undo": "none",
+     "signature": "(propertyId: RemId, value: RichTextInterface | undefined) => Promise<void>"
+    },
+    "removeTag": {
+     "class": "write",
+     "undo": "full",
+     "destructiveWhenArg": {
+      "index": 1,
+      "truthy": true
+     },
+     "signature": "(tagId: RemId, removeProperties?: boolean) => Promise<void>"
+    },
+    "removePowerup": {
+     "class": "destructive",
+     "undo": "none",
+     "signature": "(powerupCode: BuiltInPowerupCodes | string) => Promise<void>"
+    },
+    "addTag": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(tag: RemId | RemObject) => Promise<void>"
+    },
+    "remove": {
+     "class": "destructive",
+     "undo": "partial",
+     "signature": "() => Promise<void>"
+    },
+    "getTagRems": {
+     "class": "read",
+     "signature": "() => Promise<RemObject[]>"
+    },
+    "addToPortal": {
+     "class": "destructive",
+     "undo": "none",
+     "signature": "(portal: RemId | RemObject) => Promise<void>"
+    },
+    "removeFromPortal": {
+     "class": "destructive",
+     "undo": "none",
+     "signature": "(portal: RemId | RemObject) => Promise<void>"
+    },
+    "setParent": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(parent: RemId | RemObject | null, positionAmongstSiblings?: number) => Promise<void>"
+    },
+    "getOrCreateAliasWithText": {
+     "class": "destructive",
+     "undo": "none",
+     "signature": "(aliasText: RichTextInterface) => Promise<RemObject | undefined>"
+    },
+    "getChildrenRem": {
+     "class": "read",
+     "signature": "() => Promise<RemObject[]>"
+    },
+    "allRemInDocumentOrPortal": {
+     "class": "read",
+     "signature": "() => Promise<RemObject[]>"
+    },
+    "expand": {
+     "class": "ui",
+     "signature": "(portal: RemId | RemObject | undefined, recurse: boolean) => Promise<void>"
+    },
+    "collapse": {
+     "class": "ui",
+     "signature": "(portal: RemId | RemObject | undefined) => Promise<void>"
+    },
+    "siblingRem": {
+     "class": "read",
+     "signature": "() => Promise<RemObject[]>"
+    },
+    "visibleSiblingRem": {
+     "class": "read",
+     "signature": "(portalId?: string) => Promise<RemObject[]>"
+    },
+    "taggedRem": {
+     "class": "read",
+     "signature": "() => Promise<RemObject[]>"
+    },
+    "ancestorTagRem": {
+     "class": "read",
+     "signature": "() => Promise<RemObject[]>"
+    },
+    "descendantTagRem": {
+     "class": "read",
+     "signature": "() => Promise<RemObject[]>"
+    },
+    "getDescendants": {
+     "class": "read",
+     "signature": "() => Promise<RemObject[]>"
+    },
+    "getCards": {
+     "class": "read",
+     "signature": "() => Promise<Card[]>"
+    },
+    "getAliases": {
+     "class": "read",
+     "signature": "() => Promise<RemObject[]>"
+    },
+    "getParentRem": {
+     "class": "read",
+     "signature": "() => Promise<RemObject | undefined>"
+    },
+    "portalsAndDocumentsIn": {
+     "class": "read",
+     "signature": "() => Promise<RemObject[]>"
+    },
+    "merge": {
+     "class": "destructive",
+     "undo": "none",
+     "signature": "(remIdToMergeIntoThisOne: RemId) => Promise<void>"
+    },
+    "mergeAndSetAlias": {
+     "class": "destructive",
+     "undo": "none",
+     "signature": "(remToMergeIntoThisOne: RemId | RemObject) => Promise<void>"
+    },
+    "indent": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(portal?: RemId | RemObject) => Promise<void>"
+    },
+    "outdent": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(portal?: RemId | RemObject) => Promise<void>"
+    },
+    "setType": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(type: SetRemType) => Promise<void>"
+    },
+    "remsReferencingThis": {
+     "class": "read",
+     "signature": "() => Promise<RemObject[]>"
+    },
+    "remsBeingReferenced": {
+     "class": "read",
+     "signature": "() => Promise<RemObject[]>"
+    },
+    "deepRemsBeingReferenced": {
+     "class": "read",
+     "signature": "() => Promise<RemObject[]>"
+    },
+    "getSources": {
+     "class": "read",
+     "signature": "() => Promise<RemObject[]>"
+    },
+    "addSource": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(source: RemId | RemObject) => Promise<void>"
+    },
+    "removeSource": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(source: RemId | RemObject) => Promise<void>"
+    },
+    "isDocument": {
+     "class": "read",
+     "signature": "() => Promise<boolean>"
+    },
+    "setIsDocument": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(isDocument: boolean) => Promise<void>"
+    },
+    "isListItem": {
+     "class": "read",
+     "signature": "() => Promise<boolean>"
+    },
+    "setIsListItem": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(isListItem: boolean) => Promise<void>"
+    },
+    "isCardItem": {
+     "class": "read",
+     "signature": "() => Promise<boolean>"
+    },
+    "setIsCardItem": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(isCardItem: boolean) => Promise<void>"
+    },
+    "isQuote": {
+     "class": "read",
+     "signature": "() => Promise<boolean>"
+    },
+    "setIsQuote": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(isQuote: boolean) => Promise<void>"
+    },
+    "isCode": {
+     "class": "read",
+     "signature": "() => Promise<boolean>"
+    },
+    "setIsCode": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(isCode: boolean) => Promise<void>"
+    },
+    "isTodo": {
+     "class": "read",
+     "signature": "() => Promise<boolean>"
+    },
+    "setIsTodo": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(isTodo: boolean) => Promise<void>"
+    },
+    "getTodoStatus": {
+     "class": "read",
+     "signature": "() => Promise<'Finished' | 'Unfinished' | undefined>"
+    },
+    "setTodoStatus": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(todoStatus: 'Finished' | 'Unfinished') => Promise<void>"
+    },
+    "getFontSize": {
+     "class": "read",
+     "signature": "() => Promise<'H1' | 'H2' | 'H3' | undefined>"
+    },
+    "setFontSize": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(fontSize: 'H1' | 'H2' | 'H3' | undefined) => Promise<void>"
+    },
+    "getHighlightColor": {
+     "class": "read",
+     "signature": "() => Promise<string | undefined>"
+    },
+    "setHighlightColor": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(highlightColor: 'Red' | 'Orange' | 'Yellow' | 'Green' | 'Blue' | 'Purple') => Promise<void>"
+    },
+    "isPowerup": {
+     "class": "read",
+     "signature": "() => Promise<boolean>"
+    },
+    "isPowerupEnum": {
+     "class": "read",
+     "signature": "() => Promise<boolean>"
+    },
+    "isPowerupPropertyListItem": {
+     "class": "read",
+     "signature": "() => Promise<boolean>"
+    },
+    "isPowerupSlot": {
+     "class": "read",
+     "signature": "() => Promise<boolean>"
+    },
+    "isPowerupProperty": {
+     "class": "read",
+     "signature": "() => Promise<boolean>"
+    },
+    "isSlot": {
+     "class": "read",
+     "signature": "() => Promise<boolean>"
+    },
+    "setIsSlot": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(isSlot: boolean) => Promise<void>"
+    },
+    "isProperty": {
+     "class": "read",
+     "signature": "() => Promise<boolean>"
+    },
+    "setIsProperty": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(isProperty: boolean) => Promise<void>"
+    },
+    "openRemInContext": {
+     "class": "ui",
+     "signature": "(portalId?: RemId) => Promise<void>"
+    },
+    "openRemAsPage": {
+     "class": "ui",
+     "signature": "() => Promise<void>"
+    },
+    "getEnablePractice": {
+     "class": "read",
+     "signature": "() => Promise<boolean>"
+    },
+    "getPracticeDirection": {
+     "class": "read",
+     "signature": "() => Promise<'forward' | 'backward' | 'none' | 'both'>"
+    },
+    "setEnablePractice": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(enablePractice: boolean) => Promise<void>"
+    },
+    "setPracticeDirection": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(direction: 'forward' | 'backward' | 'none' | 'both') => Promise<void>"
+    },
+    "copyPortalReferenceToClipboard": {
+     "class": "ui",
+     "signature": "() => Promise<void>"
+    },
+    "copyTagReferenceToClipboard": {
+     "class": "ui",
+     "signature": "() => Promise<void>"
+    },
+    "copyReferenceToClipboard": {
+     "class": "ui",
+     "signature": "() => Promise<void>"
+    },
+    "scrollToReaderHighlight": {
+     "class": "ui",
+     "signature": "() => Promise<void>"
+    },
+    "isFolder": {
+     "class": "read",
+     "signature": "() => Promise<boolean>"
+    },
+    "setIsFolder": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(isFolder: boolean) => Promise<void>"
+    }
+   }
+  },
+  "ns:rem": {
+   "methods": {
+    "findOne": {
+     "class": "read",
+     "signature": "(remId: RemId | undefined) => Promise<RemObject | undefined>"
+    },
+    "createSingleRemWithMarkdown": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(markdown: string, parentId?: RemId) => Promise<RemObject | undefined>"
+    },
+    "createTreeWithMarkdown": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(markdown: string, parentId?: RemId) => Promise<RemObject[]>"
+    },
+    "findByName": {
+     "class": "read",
+     "signature": "(name: RichTextInterface, parentId: RemId | null) => Promise<RemObject | undefined>"
+    },
+    "moveRems": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(rems: RemId[] | RemObject[], newParent: RemId | RemObject, positionAmongstSiblings: number, portal?: RemId | RemObject) => Promise<void>"
+    },
+    "getAll": {
+     "class": "read",
+     "signature": "() => Promise<RemObject[]>"
+    },
+    "findMany": {
+     "class": "read",
+     "signature": "(rs: RemId[] | RemObject[]) => Promise<RemObject[] | undefined>"
+    },
+    "createPortal": {
+     "class": "write",
+     "undo": "full",
+     "signature": "() => Promise<RemObject | undefined>"
+    },
+    "createLinkRem": {
+     "class": "write",
+     "undo": "partial",
+     "signature": "(url: string, addTitle?: boolean) => Promise<RemObject | undefined>"
+    },
+    "createTable": {
+     "class": "write",
+     "undo": "full",
+     "signature": "(existingTag?: RemId | RemObject) => Promise<RemObject | undefined>"
+    },
+    "createRem": {
+     "class": "write",
+     "undo": "full",
+     "signature": "() => Promise<RemObject | undefined>"
+    }
+   }
+  },
+  "ns:richText": {
+   "methods": {
+    "indexOfElementAt": {
+     "class": "read",
+     "signature": "(richText: RichTextInterface, position: number) => Promise<number>"
+    },
+    "normalize": {
+     "class": "read",
+     "signature": "(richText: RichTextInterface) => Promise<RichTextInterface>"
+    },
+    "removeTextFormatFromRange": {
+     "class": "read",
+     "signature": "(text: RichTextInterface, start: number, end: number, format: RichTextFormatName) => Promise<RichTextInterface>"
+    },
+    "applyTextFormatToRange": {
+     "class": "read",
+     "signature": "(text: RichTextInterface, start: number, end: number, format: RichTextFormatName) => Promise<RichTextInterface>"
+    },
+    "toggleTextFormatOnRange": {
+     "class": "read",
+     "signature": "(text: RichTextInterface, start: number, end: number, format: RichTextFormatName) => Promise<RichTextInterface>"
+    },
+    "replaceAllRichText": {
+     "class": "read",
+     "signature": "(richText: RichTextInterface, findText: RichTextInterface, replacementText: RichTextInterface) => Promise<RichTextInterface>"
+    },
+    "splitRichText": {
+     "class": "read",
+     "signature": "(richText: RichTextInterface, splitText: RichTextInterface) => Promise<RichTextInterface>"
+    },
+    "empty": {
+     "class": "read",
+     "signature": "(richText: RichTextInterface, allowSpaces?: boolean) => Promise<boolean>"
+    },
+    "indexOf": {
+     "class": "read",
+     "signature": "(richText: RichTextInterface, character: string, startChar?: number) => Promise<number>"
+    },
+    "toHTML": {
+     "class": "read",
+     "signature": "(richText: RichTextInterface) => Promise<string>"
+    },
+    "length": {
+     "class": "read",
+     "signature": "(richText: RichTextInterface) => Promise<number>"
+    },
+    "trimEnd": {
+     "class": "read",
+     "signature": "(richText: RichTextInterface) => Promise<RichTextInterface>"
+    },
+    "trimStart": {
+     "class": "read",
+     "signature": "(richText: RichTextInterface) => Promise<RichTextInterface>"
+    },
+    "trim": {
+     "class": "read",
+     "signature": "(richText: RichTextInterface) => Promise<RichTextInterface>"
+    },
+    "split": {
+     "class": "read",
+     "signature": "(richText: RichTextInterface, separationCharacter: string) => Promise<RichTextInterface>"
+    },
+    "deepGetRemAndAliasIdsFromRichText": {
+     "class": "read",
+     "signature": "(richText: RichTextInterface) => Promise<RemId[]>"
+    },
+    "deepGetRemIdsFromRichText": {
+     "class": "read",
+     "signature": "(richText: RichTextInterface) => Promise<RemId[]>"
+    },
+    "findAllExternalURLs": {
+     "class": "read",
+     "signature": "(richText: RichTextInterface) => Promise<string[]>"
+    },
+    "getRemAndAliasIdsFromRichText": {
+     "class": "read",
+     "signature": "(richText: RichTextInterface) => Promise<RemId[]>"
+    },
+    "getRemIdsFromRichText": {
+     "class": "read",
+     "signature": "(richText: RichTextInterface) => Promise<RemId[]>"
+    },
+    "equals": {
+     "class": "read",
+     "signature": "(richText1: RichTextInterface, richText2: RichTextInterface) => Promise<boolean>"
+    },
+    "substring": {
+     "class": "read",
+     "signature": "(richText: RichTextInterface, start: number, end?: number) => Promise<RichTextInterface>"
+    },
+    "charAt": {
+     "class": "read",
+     "signature": "(richText: RichTextInterface, index: number) => Promise<string | null>"
+    },
+    "toString": {
+     "class": "read",
+     "signature": "(richText: RichTextInterface) => Promise<string>"
+    },
+    "toMarkdown": {
+     "class": "read",
+     "signature": "(richText: RichTextInterface) => Promise<string>"
+    },
+    "parseFromMarkdown": {
+     "class": "read",
+     "signature": "(markdown: string) => Promise<RichTextInterface>"
+    },
+    "parseAndInsertHtml": {
+     "class": "destructive",
+     "undo": "none",
+     "signature": "(html: string, rem: PluginRem | RemId) => Promise<void>"
+    }
+   }
+  },
+  "ns:scheduler": {
+   "methods": {
+    "registerCustomScheduler": {
+     "class": "blocked",
+     "signature": "(name: string, parameters: PluginSchedulerParameter[]): Promise<any>;"
+    }
+   }
+  },
+  "ns:search": {
+   "methods": {
+    "search": {
+     "class": "read",
+     "signature": "(queryText: RichTextInterface, searchContextRem?: RemId | PluginRem, options?: {"
+    }
+   }
+  },
+  "ns:settings": {
+   "methods": {
+    "registerDropdownSetting": {
+     "class": "blocked",
+     "signature": "(setting: PluginDropdownSetting) => Promise<void>"
+    },
+    "registerBooleanSetting": {
+     "class": "blocked",
+     "signature": "(setting: PluginSettingBase<boolean>) => Promise<void>"
+    },
+    "registerStringSetting": {
+     "class": "blocked",
+     "signature": "(setting: PluginStringSetting) => Promise<void>"
+    },
+    "registerNumberSetting": {
+     "class": "blocked",
+     "signature": "(setting: PluginSettingBase<number>) => Promise<void>"
+    },
+    "getSetting": {
+     "class": "blocked",
+     "signature": "<T>(settingId: string) => Promise<T>"
+    }
+   }
+  },
+  "ns:storage": {
+   "methods": {
+    "setSession": {
+     "class": "blocked",
+     "signature": "(key: string, value: any) => Promise<void>"
+    },
+    "getSession": {
+     "class": "blocked",
+     "signature": "<T = unknown>(key: string | undefined) => Promise<T | undefined>"
+    },
+    "setSynced": {
+     "class": "blocked",
+     "signature": "(key: string, value: any) => Promise<void>"
+    },
+    "getSynced": {
+     "class": "blocked",
+     "signature": "<T = unknown>(key: string | undefined) => Promise<T | undefined>"
+    },
+    "setLocal": {
+     "class": "blocked",
+     "signature": "(key: string, value: any) => Promise<void>"
+    },
+    "getLocal": {
+     "class": "blocked",
+     "signature": "<T = unknown>(key: string | undefined) => Promise<T | undefined>"
+    }
+   }
+  },
+  "ns:widget": {
+   "methods": {
+    "getWidgetsAtLocation": {
+     "class": "blocked",
+     "signature": "(location: WidgetLocation, remId?: string) => Promise<{"
+    },
+    "getDimensions": {
+     "class": "blocked",
+     "signature": "(widgetInstanceId: number) => Promise<DOMRect>"
+    },
+    "openPopup": {
+     "class": "blocked",
+     "signature": "(widgetFileName: WidgetFileName, contextData?: any, clickOutsideToClose?: boolean) => Promise<void>"
+    },
+    "closePopup": {
+     "class": "blocked",
+     "signature": "(restoreFocus?: boolean) => Promise<void>"
+    },
+    "getWidgetContext": {
+     "class": "blocked",
+     "signature": "<T extends WidgetLocation>() => Promise<WidgetLocationContextDataMap[T] extends undefined ? {"
+    }
+   }
+  },
+  "ns:window": {
+   "methods": {
+    "stealKeys": {
+     "class": "blocked",
+     "signature": "(floatingWidgetId: string, keys: string[]) => Promise<void>"
+    },
+    "releaseKeys": {
+     "class": "blocked",
+     "signature": "(floatingWidgetId: string, keys: string[]) => Promise<void>"
+    },
+    "openFloatingWidget": {
+     "class": "ui",
+     "signature": "(fileName: string, position: {"
+    },
+    "closeFloatingWidget": {
+     "class": "ui",
+     "signature": "(floatingWidgetId: string) => Promise<void>"
+    },
+    "isFloatingWidgetOpen": {
+     "class": "read",
+     "signature": "(floatingWidgetId: string) => Promise<boolean>"
+    },
+    "setFloatingWidgetPosition": {
+     "class": "ui",
+     "signature": "(floatingWidgetId: string, position: {"
+    },
+    "closeAllFloatingWidgets": {
+     "class": "ui",
+     "signature": "() => Promise<void>"
+    },
+    "getCurrentWindowTree": {
+     "class": "read",
+     "signature": "() => Promise<PaneRemWindowTree>"
+    },
+    "setRemWindowTree": {
+     "class": "ui",
+     "signature": "(tree: RemIdWindowTree) => Promise<void>"
+    },
+    "getLastFocusedPane": {
+     "class": "read",
+     "signature": "() => Promise<string | undefined>"
+    },
+    "setCurrentWindowTreeFromString": {
+     "class": "ui",
+     "signature": "(treeString: string) => Promise<void>"
+    },
+    "getOpenPaneIds": {
+     "class": "read",
+     "signature": "() => Promise<string[]>"
+    },
+    "getFocusedPaneId": {
+     "class": "read",
+     "signature": "() => Promise<string>"
+    },
+    "setFocusedPaneId": {
+     "class": "ui",
+     "signature": "(paneId: string) => Promise<void>"
+    },
+    "getURL": {
+     "class": "read",
+     "signature": "() => Promise<string>"
+    },
+    "setURL": {
+     "class": "ui",
+     "signature": "(url: string) => Promise<void>"
+    },
+    "openRem": {
+     "class": "ui",
+     "signature": "(rem: RemObject) => Promise<void>"
+    },
+    "getOpenPaneRemIds": {
+     "class": "read",
+     "signature": "() => Promise<RemId[]>"
+    },
+    "getOpenPaneRemId": {
+     "class": "read",
+     "signature": "(paneId: string | undefined) => Promise<string | undefined>"
+    },
+    "openWidgetInPane": {
+     "class": "ui",
+     "signature": "(fileName: string, contextData?: Record<string, any>) => Promise<RemId[]>"
+    },
+    "openWidgetInRightSidebar": {
+     "class": "ui",
+     "signature": "(fileName: string, contextData?: Record<string, any>) => Promise<RemId[]>"
+    },
+    "isOnPage": {
+     "class": "read",
+     "signature": "(page: PageType_DUPE_1) => Promise<boolean>"
+    }
+   }
+  }
+ }
+}

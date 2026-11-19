@@ -50,6 +50,20 @@ function Get-PluginStatusVersionString {
     return [string]$response.result.pluginVersion
 }
 
+function Invoke-PluginReload {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$BaseUrl
+    )
+
+    $body = @{
+        action = 'reload_plugin'
+        payload = @{}
+    } | ConvertTo-Json -Depth 5
+
+    Invoke-RestMethod -Method Post -Uri ($BaseUrl.TrimEnd('/') + '/call') -ContentType 'application/json' -Body $body -TimeoutSec 5 | Out-Null
+}
+
 function Wait-PluginVersion {
     param(
         [Parameter(Mandatory = $true)]
@@ -122,9 +136,9 @@ function Restart-RemNoteApp {
     }
 
     $launchers = @(
-        { if (Test-Path $shortcutPath) { Start-Process -FilePath $shortcutPath | Out-Null } },
+        { Start-Process -FilePath $remnoteExe -ArgumentList '--remote-debugging-port=9233' -WorkingDirectory (Split-Path $remnoteExe -Parent) | Out-Null },
         { if (Test-Path $vbsLauncher) { Start-Process -FilePath 'wscript.exe' -ArgumentList "`"$vbsLauncher`"" | Out-Null } },
-        { Start-Process -FilePath $remnoteExe -WorkingDirectory (Split-Path $remnoteExe -Parent) | Out-Null }
+        { if (Test-Path $shortcutPath) { Start-Process -FilePath $shortcutPath | Out-Null } }
     )
 
     foreach ($launch in $launchers) {
@@ -156,6 +170,7 @@ if (-not $ForceRestart -and $activeVersion -eq $manifestVersion) {
         ok = $true
         synced = $true
         restarted = $false
+        reloaded = $false
         manifestVersion = $manifestVersion
         activeVersion = $activeVersion
         forced = $false
@@ -163,8 +178,43 @@ if (-not $ForceRestart -and $activeVersion -eq $manifestVersion) {
     exit 0
 }
 
+if (-not $ForceRestart) {
+    $reloadSent = $false
+    try {
+        Invoke-PluginReload -BaseUrl $HostBaseUrl
+        $reloadSent = $true
+    } catch {
+    }
+
+    $matchedAfterReload = Wait-PluginVersion -BaseUrl $HostBaseUrl -ExpectedVersion $manifestVersion -TimeoutSeconds $WaitAfterRestartSeconds -SleepSeconds $PollSeconds
+    $finalVersionAfterReload = ''
+    try {
+        $finalVersionAfterReload = Get-PluginStatusVersionString -BaseUrl $HostBaseUrl
+    } catch {
+    }
+
+    [pscustomobject]@{
+        ok = $matchedAfterReload
+        synced = $matchedAfterReload
+        restarted = $false
+        reloaded = $reloadSent
+        needsRestart = (-not $matchedAfterReload)
+        forced = $false
+        manifestVersion = $manifestVersion
+        activeVersionBefore = $activeVersion
+        activeVersionAfter = $finalVersionAfterReload
+        message = if ($matchedAfterReload) { 'Plugin reload ile senkron edildi; RemNote kapatilip acilmadi.' } else { 'Plugin reload aktif surumu esitlemedi. RemNote restart gerekiyorsa komutu bilincli olarak -ForceRestart ile calistir.' }
+    } | ConvertTo-Json -Depth 5
+
+    if (-not $matchedAfterReload) {
+        exit 1
+    }
+    exit 0
+}
+
 $exePath = Restart-RemNoteApp
 Start-Sleep -Seconds 6
+& "$PSScriptRoot\start_remnote_cdp_toolbar_injector.ps1" -CdpPort 9233 -BridgeUrl $HostBaseUrl | Out-Null
 Start-Sleep -Seconds $WaitAfterRestartSeconds
 $matched = Wait-PluginVersion -BaseUrl $HostBaseUrl -ExpectedVersion $manifestVersion -TimeoutSeconds $WaitAfterRestartSeconds -SleepSeconds $PollSeconds
 $finalVersion = $null

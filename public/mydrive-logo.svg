@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Google Drive logo">
+  <path fill="#34a853" d="M23.1 8 2.2 44.1l10.4 18L33.5 26 23.1 8Z"/>
+  <path fill="#188038" d="M23.1 8 33.5 26h20.9L44 8H23.1Z"/>
+  <path fill="#fbbc04" d="M44 8 64 42.6 53.6 60.6 33.5 26 23.1 8H44Z"/>
+  <path fill="#ea8600" d="M2.2 44.1h20.9l10.4 18H12.6l-10.4-18Z"/>
+  <path fill="#4285f4" d="M23.1 44.1h40.9l-10.4 18H12.6l10.5-18Z"/>
+  <path fill="#1a73e8" d="M33.5 26 44 44.1H23.1L33.5 26Z"/>
+</svg>

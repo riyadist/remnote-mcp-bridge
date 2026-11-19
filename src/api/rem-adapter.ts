@@ -3,7 +3,9 @@
  * Wraps the RemNote Plugin SDK with correct method signatures for v0.0.46+
  */
 
+import { PLUGIN_VERSION } from '../version';
 import {
+  BuiltInPowerupCodes,
   PropertyType,
   ReactRNPlugin,
   RichTextInterface,
@@ -32,6 +34,11 @@ const DEFAULT_POWERUP_CODES = [
   'g', 't', 'f', 'p', 'z', 'cd', 'ty', 'de', 'sp', 'ct', 'hh', 'ha', 'id', 'im',
   'sd', 'clo'
 ];
+
+const BRIDGE_PLUGIN_VERSION = PLUGIN_VERSION;
+const EXTRA_CARD_DETAIL_POWERUP_CODE = 'x';
+const DOCUMENT_BULLET_ICON_SLOT_CODE = 'b';
+const DOCUMENT_STATUS_SLOT_CODE = 's';
 
 const DEFAULT_POWERUP_SLOT_CODES: Record<string, string[]> = {
   l: ['Aliases'],
@@ -108,7 +115,6 @@ export interface CreateNoteParams {
   isQuote?: boolean;
   isList?: boolean;
 }
-
 export interface CreateLinkRemParams {
   url: string;
   addTitle?: boolean;
@@ -160,12 +166,16 @@ export interface MoveNoteParams {
 
 export interface DeleteNoteParams {
   remId: string;
+  dryRun?: boolean;
+  confirm?: string;
+  allowDestructive?: boolean;
+  expectedRemId?: string;
 }
 
-export interface OverwriteNoteContentParams {
-  remId: string;
+export interface OverwriteNoteContentParams extends DeleteNoteParams {
   content: string;
   headingLevel?: number;
+  allowEmpty?: boolean;
 }
 
 export interface CreateStructuredSummaryParams {
@@ -232,6 +242,20 @@ export interface ApplyTemplateToRemParams {
   tagId?: string;
   skipExistingChildTitles?: boolean;
   propertyDefaults?: Record<string, string>;
+}
+
+export interface CloneRemSubtreeParams {
+  sourceRemId: string;
+  targetParentId: string;
+  includeRoot?: boolean;
+  positionAmongstSiblings?: number;
+}
+
+interface DocumentUiSnapshot {
+  title: string;
+  isDocument: boolean;
+  icon?: unknown[];
+  status?: unknown[];
 }
 
 export interface ApplyTagAutoTemplateParams {
@@ -314,6 +338,7 @@ export interface InspectEditorContextParams {
 }
 
 export interface ControlEditorParams extends RichTextInputParams {
+  expectedRemId?: string;
   operation?: 'status' | 'setText' | 'copy' | 'cut' | 'deleteCharacters' | 'delete' | 'selectRem' | 'selectText' | 'collapseSelection' | 'undo' | 'redo' | 'moveCaret' | 'moveCaretVertical' | 'insertPlainText' | 'insertRichText' | 'insertMarkdown';
   confirm?: string;
   dryRun?: boolean;
@@ -836,21 +861,12 @@ const PROPERTY_TYPE_ALIASES: Record<string, PropertyType> = {
 };
 
 const SDK_REM_METHOD_ALLOWLIST = new Set([
-  'addPowerup',
-  'addSource',
-  'addTag',
-  'addToPortal',
   'allRemInDocumentOrPortal',
   'allRemInFolderQueue',
   'ancestorTagRem',
-  'collapse',
-  'copyPortalReferenceToClipboard',
-  'copyReferenceToClipboard',
-  'copyTagReferenceToClipboard',
   'descendantTagRem',
   'deepRemsBeingReferenced',
   'embeddedQueueViewMode',
-  'expand',
   'getAliases',
   'getCards',
   'getChildrenRem',
@@ -865,7 +881,6 @@ const SDK_REM_METHOD_ALLOWLIST = new Set([
   'getPortalDirectlyIncludedRem',
   'getPortalType',
   'getPowerupProperty',
-  'getPowerupPropertyAsRem',
   'getPowerupPropertyAsRichText',
   'getPracticeDirection',
   'getPropertyType',
@@ -877,7 +892,6 @@ const SDK_REM_METHOD_ALLOWLIST = new Set([
   'getTodoStatus',
   'getType',
   'hasPowerup',
-  'indent',
   'isCardItem',
   'isCode',
   'isCollapsed',
@@ -894,42 +908,11 @@ const SDK_REM_METHOD_ALLOWLIST = new Set([
   'isSlot',
   'isTable',
   'isTodo',
-  'merge',
-  'mergeAndSetAlias',
-  'openRemAsPage',
-  'openRemInContext',
-  'outdent',
   'portalsAndDocumentsIn',
   'positionAmongstSiblings',
   'positionAmongstVisibleSiblings',
-  'removePowerup',
-  'removeSource',
-  'removeTag',
-  'removeFromPortal',
   'remsBeingReferenced',
   'remsReferencingThis',
-  'scrollToReaderHighlight',
-  'setEnablePractice',
-  'setFontSize',
-  'setHiddenExplicitlyIncludedState',
-  'setHighlightColor',
-  'setIsCardItem',
-  'setIsCode',
-  'setIsCollapsed',
-  'setIsDocument',
-  'setIsFolder',
-  'setIsListItem',
-  'setIsProperty',
-  'setIsQuote',
-  'setIsSlot',
-  'setIsTodo',
-  'setParent',
-  'setPowerupProperty',
-  'setPracticeDirection',
-  'setTableFilter',
-  'setTagPropertyValue',
-  'setTodoStatus',
-  'setType',
   'siblingRem',
   'taggedRem',
   'timesSelectedInSearch',
@@ -1053,6 +1036,7 @@ export interface FlashcardDetailSection {
   title: string;
   body?: string;
   children?: FlashcardDetailSection[];
+  imageUrls?: string[];
   collapsed?: boolean;
 }
 
@@ -1075,6 +1059,22 @@ export interface CreateReferenceParams {
   remId: string;
   text: string;
   targetRemId: string;
+}
+
+export interface CreatePinnedReferenceNoteParams {
+  parentId: string;
+  text: string;
+  targetRemId: string;
+  positionAmongstSiblings?: number;
+  pin?: boolean;
+  dryRun?: boolean;
+}
+
+export interface UpdatePinnedReferenceTextParams {
+  remId: string;
+  text: string;
+  targetRemId?: string;
+  dryRun?: boolean;
 }
 
 export class RemAdapter {
@@ -1751,6 +1751,22 @@ export class RemAdapter {
     };
   }
 
+  private async getStrictDirectChildren(rem: PluginRem): Promise<PluginRem[]> {
+    const children = await rem.getChildrenRem().catch(() => [] as PluginRem[]);
+    return (children || []).filter((child) => {
+      const parentId = (child as unknown as { parent?: string }).parent;
+      return !parentId || parentId === rem._id;
+    });
+  }
+
+  private async deleteRemSubtree(rem: PluginRem): Promise<void> {
+    const children = await this.getStrictDirectChildren(rem);
+    for (const child of children) {
+      await this.deleteRemSubtree(child);
+    }
+    await rem.remove();
+  }
+
   private parseSetRemType(value: string | number | undefined): SetRemType {
     if (typeof value === 'number') {
       if (value === SetRemType.DEFAULT_TYPE || value === SetRemType.CONCEPT || value === SetRemType.DESCRIPTOR) {
@@ -1768,15 +1784,103 @@ export class RemAdapter {
     throw new Error('control_rem_structure setType requires remType=DEFAULT_TYPE|CONCEPT|DESCRIPTOR.');
   }
 
+  private getImageUrlsFromRichText(richText: unknown): string[] {
+    if (!Array.isArray(richText)) return [];
+    const urls: string[] = [];
+    for (const node of richText) {
+      if (!node || typeof node !== 'object' || Array.isArray(node)) continue;
+      const record = node as Record<string, unknown>;
+      if (record.i === 'i' && typeof record.url === 'string' && record.url.trim()) {
+        urls.push(record.url.trim());
+      }
+    }
+    return urls;
+  }
+
+  private sanitizeImageRichText(richText: unknown): RichTextInterface | undefined {
+    if (!Array.isArray(richText)) return undefined;
+    let hasImage = false;
+    const sanitized = richText.map((node) => {
+      if (!node || typeof node !== 'object' || Array.isArray(node)) return node;
+      const record = node as Record<string, unknown>;
+      if (record.i !== 'i' || typeof record.url !== 'string' || !record.url.trim()) return node;
+
+      hasImage = true;
+      const imageNode: Record<string, unknown> = {
+        i: 'i',
+        url: record.url.trim(),
+      };
+      for (const key of ['width', 'height', 'percent']) {
+        if (typeof record[key] === 'number') imageNode[key] = record[key];
+      }
+      return imageNode;
+    });
+    return hasImage ? sanitized as RichTextInterface : undefined;
+  }
+
+  private imageMarkdownFromRichText(richText: unknown): string | undefined {
+    const urls = this.getImageUrlsFromRichText(richText);
+    if (urls.length === 0) return undefined;
+    return urls.map((url, index) => `![Cloned image ${index + 1}](${url})`).join('\n');
+  }
+
+  private async trySetRichText(
+    setter: (richText: RichTextInterface) => Promise<unknown>,
+    richText: RichTextInterface
+  ): Promise<boolean> {
+    try {
+      await setter(richText);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async applyCloneRichText(
+    setter: (richText: RichTextInterface) => Promise<unknown>,
+    sourceText: unknown,
+    visibleText?: string
+  ): Promise<boolean> {
+    if (Array.isArray(sourceText) && sourceText.length > 0) {
+      if (await this.trySetRichText(setter, sourceText as RichTextInterface)) return true;
+
+      const sanitized = this.sanitizeImageRichText(sourceText);
+      if (sanitized && await this.trySetRichText(setter, sanitized)) return true;
+
+      const imageMarkdown = this.imageMarkdownFromRichText(sourceText);
+      if (imageMarkdown) {
+        try {
+          const parsedImage = await this.plugin.richText.parseFromMarkdown(imageMarkdown);
+          if (await this.trySetRichText(setter, parsedImage)) return true;
+        } catch {
+          // Some RemNote-local file URLs cannot be parsed through markdown.
+        }
+      }
+
+      const imageUrls = this.getImageUrlsFromRichText(sourceText);
+      if (imageUrls.length > 0) {
+        if (await this.trySetRichText(setter, this.textToPlainRichText(imageUrls.join('\n')))) return true;
+      }
+    } else if (typeof sourceText === 'string' && sourceText.length > 0) {
+      if (await this.trySetRichText(setter, this.textToPlainRichText(sourceText))) return true;
+    }
+
+    if (visibleText?.trim()) {
+      return await this.trySetRichText(setter, await this.textToRichText(visibleText));
+    }
+    return false;
+  }
+
   private async cloneRemSubtree(source: PluginRem, parent: PluginRem, positionAmongstSiblings?: number): Promise<PluginRem | undefined> {
     const clone = await this.plugin.rem.createRem();
     if (!clone) return undefined;
 
-    const sourceText = source.text || this.textToPlainRichText(await this.getRemText(source));
-    await clone.setText(sourceText);
-    if (source.backText) {
-      await clone.setBackText(source.backText);
-    }
+    const visibleText = await this.getRemText(source);
+    const sourceText = source.text as unknown;
+    await this.applyCloneRichText((richText) => clone.setText(richText), sourceText, visibleText);
+
+    const sourceBackText = source.backText as unknown;
+    await this.applyCloneRichText((richText) => clone.setBackText(richText), sourceBackText);
 
     try {
       await clone.setType(await source.getType() as any);
@@ -1800,9 +1904,18 @@ export class RemAdapter {
       }
     }
 
+    let sourceFontSize: 'H1' | 'H2' | 'H3' | undefined;
     try {
-      const fontSize = await source.getFontSize();
-      if (fontSize) await clone.setFontSize(fontSize);
+      sourceFontSize = await source.getFontSize();
+      if (sourceFontSize === 'H1') {
+        await this.applyHeadingLevel(clone, 1);
+      } else if (sourceFontSize === 'H2') {
+        await this.applyHeadingLevel(clone, 2);
+      } else if (sourceFontSize === 'H3') {
+        await this.applyHeadingLevel(clone, 3);
+      } else if (sourceFontSize) {
+        await clone.setFontSize(sourceFontSize);
+      }
     } catch {
       // Best-effort.
     }
@@ -1820,13 +1933,92 @@ export class RemAdapter {
     }
 
     await clone.setParent(parent, positionAmongstSiblings);
+    try {
+      // RemNote can drop the header size slot when it is applied before the clone is attached.
+      if (sourceFontSize === 'H1') {
+        await this.applyHeadingLevel(clone, 1);
+      } else if (sourceFontSize === 'H2') {
+        await this.applyHeadingLevel(clone, 2);
+      } else if (sourceFontSize === 'H3') {
+        await this.applyHeadingLevel(clone, 3);
+      } else if (sourceFontSize) {
+        await clone.setFontSize(sourceFontSize);
+      }
+    } catch {
+      // Best-effort.
+    }
+    try {
+      const enablePractice = await source.getEnablePractice();
+      if (typeof enablePractice === 'boolean') await clone.setEnablePractice(enablePractice);
+    } catch {
+      // Best-effort.
+    }
+    try {
+      const practiceDirection = await source.getPracticeDirection();
+      if (practiceDirection) await clone.setPracticeDirection(practiceDirection as any);
+    } catch {
+      // BackText clones default to practice cards unless the source direction is restored.
+    }
 
-    const children = await source.getChildrenRem();
-    for (const child of children || []) {
-      await this.cloneRemSubtree(child, clone);
+    const children = await this.getStrictDirectChildren(source);
+    for (let index = 0; index < children.length; index += 1) {
+      await this.cloneRemSubtree(children[index], clone, index);
     }
 
     return clone;
+  }
+
+  async cloneSubtree(params: CloneRemSubtreeParams): Promise<{
+    success: boolean;
+    sourceRemId: string;
+    targetParentId: string;
+    includeRoot: boolean;
+    clonedRoot?: { remId: string; title: string };
+    clonedChildren: Array<{ remId: string; title: string }>;
+  }> {
+    const source = await this.plugin.rem.findOne(params.sourceRemId);
+    if (!source) throw new Error(`Source Rem not found: ${params.sourceRemId}`);
+    const targetParent = await this.plugin.rem.findOne(params.targetParentId);
+    if (!targetParent) throw new Error(`Target parent Rem not found: ${params.targetParentId}`);
+
+    const targetUiSnapshot = await this.captureDocumentUiSnapshot(targetParent);
+    const includeRoot = params.includeRoot !== false;
+    try {
+      if (includeRoot) {
+        const cloned = await this.cloneRemSubtree(source, targetParent, params.positionAmongstSiblings);
+        return {
+          success: true,
+          sourceRemId: source._id,
+          targetParentId: targetParent._id,
+          includeRoot,
+          clonedRoot: cloned ? { remId: cloned._id, title: await this.getRemText(cloned) } : undefined,
+          clonedChildren: [],
+        };
+      }
+
+      const clonedChildren: Array<{ remId: string; title: string }> = [];
+      const children = await this.getStrictDirectChildren(source);
+      let position = typeof params.positionAmongstSiblings === 'number' ? params.positionAmongstSiblings : undefined;
+      for (const child of children) {
+        const cloned = await this.cloneRemSubtree(child, targetParent, position);
+        if (cloned) {
+          clonedChildren.push({ remId: cloned._id, title: await this.getRemText(cloned) });
+          if (typeof position === 'number') position += 1;
+        }
+      }
+
+      return {
+        success: true,
+        sourceRemId: source._id,
+        targetParentId: targetParent._id,
+        includeRoot,
+        clonedChildren,
+      };
+    } finally {
+      await this.restoreDocumentUiSnapshot(targetParent, targetUiSnapshot).catch((err) => {
+        console.warn('Could not restore target document UI snapshot after clone', err);
+      });
+    }
   }
 
   /**
@@ -1854,27 +2046,48 @@ export class RemAdapter {
     let match: RegExpExecArray | null;
     let found = false;
 
+    const appendMarkdown = async (fragment: string, textColor?: number, forceBold = false) => {
+      if (!fragment) return;
+      let parsed: RichTextInterface;
+      try {
+        parsed = this.plugin?.richText?.parseFromMarkdown
+          ? await this.plugin.richText.parseFromMarkdown(fragment)
+          : this.textToPlainRichText(fragment);
+      } catch (e) {
+        console.warn('inline marker markdown fragment conversion failed, using plain text', e);
+        parsed = this.textToPlainRichText(fragment);
+      }
+      for (const item of parsed as any[]) {
+        if (textColor === undefined) {
+          richText.push(item as any);
+          continue;
+        }
+        if (typeof item === 'string') {
+          richText.push({ i: 'm', text: item, b: forceBold || undefined, tc: textColor } as any);
+          continue;
+        }
+        if (item && typeof item === 'object' && item.i === 'm' && typeof item.text === 'string') {
+          richText.push({ ...item, b: forceBold || item.b || undefined, tc: textColor } as any);
+          continue;
+        }
+        richText.push(item as any);
+      }
+    };
+
     while ((match = markerRe.exec(text)) !== null) {
       const full = match[0];
       const colorName = match[1];
       const body = match[2] || '';
       const before = text.slice(cursor, match.index);
-      if (before) richText.push(before);
-      if (body) {
-        richText.push({
-          i: 'm',
-          text: body,
-          b: true,
-          tc: colorCodes[colorName]
-        } as any);
-      }
+      await appendMarkdown(before);
+      await appendMarkdown(body, colorCodes[colorName], true);
       cursor = match.index + full.length;
       found = true;
     }
 
     if (!found) return undefined;
     const after = text.slice(cursor);
-    if (after) richText.push(after);
+    await appendMarkdown(after);
     return richText;
   }
 
@@ -1888,7 +2101,7 @@ export class RemAdapter {
       return inlineMarked;
     }
 
-    const boldItalicMatch = text.match(/^\*\*\*(.+)\*\*\*$/s);
+    const boldItalicMatch = text.match(/^\*\*\*([^\r\n]+)\*\*\*$/);
     if (boldItalicMatch && boldItalicMatch[1]) {
       try {
         const plain = this.textToPlainRichText(boldItalicMatch[1]);
@@ -1900,7 +2113,7 @@ export class RemAdapter {
       }
     }
 
-    const boldMatch = text.match(/^\*\*(.+)\*\*$/s);
+    const boldMatch = text.match(/^\*\*([^\r\n]+)\*\*$/);
     if (boldMatch && boldMatch[1]) {
       try {
         const plain = this.textToPlainRichText(boldMatch[1]);
@@ -1910,7 +2123,7 @@ export class RemAdapter {
       }
     }
 
-    const italicMatch = text.match(/^\*(.+)\*$/s);
+    const italicMatch = text.match(/^\*([^\r\n]+)\*$/);
     if (italicMatch && italicMatch[1]) {
       try {
         const plain = this.textToPlainRichText(italicMatch[1]);
@@ -1920,7 +2133,7 @@ export class RemAdapter {
       }
     }
 
-    const boldPrefixMatch = text.match(/^\*\*([^*]+)\*\*(\s+.+)$/s);
+    const boldPrefixMatch = text.match(/^\*\*([^*\r\n]+)\*\*([ \t]+[^\r\n]+)$/);
     if (boldPrefixMatch && boldPrefixMatch[1] && boldPrefixMatch[2]) {
       try {
         const visible = `${boldPrefixMatch[1]}${boldPrefixMatch[2]}`;
@@ -1967,10 +2180,11 @@ export class RemAdapter {
           await markdownRem.setParent(parent);
           continue;
         }
+        throw new Error('Image preparation returned no Rem; outcome unknown, do not retry automatically');
       }
 
       const imageRem = await this.plugin.rem.createRem();
-      if (!imageRem) continue;
+      if (!imageRem) throw new Error('Image preparation failed; previous content retained');
       await imageRem.setText(await this.textToRichText(markdown));
       await imageRem.setParent(parent);
     }
@@ -1984,54 +2198,6 @@ export class RemAdapter {
     return child;
   }
 
-  private async getBlankDirectChildIds(rem: PluginRem): Promise<Set<string>> {
-    const blankIds = new Set<string>();
-    const children = await rem.getChildrenRem();
-    if (!children || children.length === 0) return blankIds;
-
-    for (const child of children) {
-      const text = (await this.getRemText(child)).trim();
-      const grandchildren = await child.getChildrenRem();
-      if (!text && (!grandchildren || grandchildren.length === 0)) {
-        blankIds.add(child._id);
-      }
-    }
-
-    return blankIds;
-  }
-
-  private async isStructuralRem(rem: any): Promise<boolean> {
-    for (const method of ['isPowerupPropertyListItem', 'isPowerupSlot', 'isPowerupProperty', 'isSlot', 'isProperty']) {
-      if (typeof rem?.[method] === 'function') {
-        try {
-          if (await rem[method]()) return true;
-        } catch {
-          // Ignore SDK states that do not support a structural check.
-        }
-      }
-    }
-    return false;
-  }
-
-  private async removeNewBlankDirectChildren(rem: PluginRem, before: Set<string>): Promise<number> {
-    const children = await rem.getChildrenRem();
-    if (!children || children.length === 0) return 0;
-
-    let removed = 0;
-    for (const child of children) {
-      if (before.has(child._id)) continue;
-      if (await this.isStructuralRem(child)) continue;
-      const text = (await this.getRemText(child)).trim();
-      const grandchildren = await child.getChildrenRem();
-      if (!text && (!grandchildren || grandchildren.length === 0)) {
-        await child.remove();
-        removed++;
-      }
-    }
-
-    return removed;
-  }
-
   private headingFontSizeFromLevel(headingLevel?: number): 'H1' | 'H2' | 'H3' | undefined {
     if (typeof headingLevel !== 'number' || headingLevel <= 0) return undefined;
     return headingLevel === 1 ? 'H1' : headingLevel === 2 ? 'H2' : 'H3';
@@ -2040,6 +2206,53 @@ export class RemAdapter {
   private async setRawPowerupProperty(rem: any, powerupCode: string, powerupSlot: string, value: unknown[]): Promise<void> {
     if (typeof rem.call !== 'function') return;
     await rem.call('setPowerupProperty', { powerupCode, powerupSlot, value });
+  }
+
+  private async getRawPowerupProperty(rem: any, powerupCode: string, powerupSlot: string): Promise<unknown> {
+    if (typeof rem.call !== 'function') {
+      throw new Error('RemObject raw call is unavailable');
+    }
+    return rem.call('getPowerupProperty', { powerupCode, powerupSlot });
+  }
+
+  private normalizeRawPowerupValue(value: unknown): unknown[] | undefined {
+    return Array.isArray(value) ? value : undefined;
+  }
+
+  private async captureDocumentUiSnapshot(rem: PluginRem): Promise<DocumentUiSnapshot> {
+    const snapshot: DocumentUiSnapshot = {
+      title: await this.getRemText(rem),
+      isDocument: await rem.isDocument().catch(() => false),
+    };
+
+    if (!snapshot.isDocument) return snapshot;
+
+    snapshot.icon = this.normalizeRawPowerupValue(
+      await this.getRawPowerupProperty(rem, BuiltInPowerupCodes.Document, DOCUMENT_BULLET_ICON_SLOT_CODE).catch(() => undefined)
+    );
+    snapshot.status = this.normalizeRawPowerupValue(
+      await this.getRawPowerupProperty(rem, BuiltInPowerupCodes.Document, DOCUMENT_STATUS_SLOT_CODE).catch(() => undefined)
+    );
+    return snapshot;
+  }
+
+  private async restoreDocumentUiSnapshot(rem: PluginRem, snapshot: DocumentUiSnapshot): Promise<void> {
+    const currentTitle = await this.getRemText(rem);
+    if (snapshot.title && currentTitle !== snapshot.title) {
+      await rem.setText(await this.textToRichText(snapshot.title));
+    }
+
+    if (!snapshot.isDocument) return;
+
+    await rem.setIsDocument(true).catch(() => undefined);
+    if (snapshot.icon && snapshot.icon.length > 0) {
+      await rem.addPowerup(BuiltInPowerupCodes.Document).catch(() => undefined);
+      await this.setRawPowerupProperty(rem, BuiltInPowerupCodes.Document, DOCUMENT_BULLET_ICON_SLOT_CODE, snapshot.icon);
+    }
+    if (snapshot.status && snapshot.status.length > 0) {
+      await rem.addPowerup(BuiltInPowerupCodes.Document).catch(() => undefined);
+      await this.setRawPowerupProperty(rem, BuiltInPowerupCodes.Document, DOCUMENT_STATUS_SLOT_CODE, snapshot.status);
+    }
   }
 
   private async setPowerupProperty(rem: any, powerupCode: string, powerupSlot: string, value: unknown[]): Promise<void> {
@@ -2100,7 +2313,8 @@ export class RemAdapter {
   private async createFlashcardDetailToggle(
     parent: PluginRem,
     section: FlashcardDetailSection,
-    positionAmongstSiblings?: number
+    positionAmongstSiblings?: number,
+    markAsExtraCardDetail = true
   ): Promise<void> {
     const title = (section?.title || '').trim();
     if (!title) return;
@@ -2108,14 +2322,24 @@ export class RemAdapter {
     const headerRem = await this.createChildRem(parent, title, positionAmongstSiblings);
     if (!headerRem) return;
 
+    if (markAsExtraCardDetail) {
+      try {
+        await headerRem.addPowerup(EXTRA_CARD_DETAIL_POWERUP_CODE);
+      } catch (e) {
+        console.warn('Could not add ExtraCardDetail powerup to flashcard detail toggle', e);
+      }
+    }
+
     let childPosition = 0;
     const body = (section.body || '').trim();
     if (body) {
       await this.createChildRem(headerRem, body, childPosition++);
     }
 
+    await this.appendImageRems(headerRem, section.imageUrls);
+
     for (const childSection of (section.children || [])) {
-      await this.createFlashcardDetailToggle(headerRem, childSection, childPosition++);
+      await this.createFlashcardDetailToggle(headerRem, childSection, childPosition++, false);
     }
 
     if (section.collapsed !== false) {
@@ -2155,12 +2379,12 @@ export class RemAdapter {
     const base = (value || '').normalize('NFC').trim();
     if (!base) return [];
     const folded = base
-      .replace(/[Ã§Ã‡]/g, 'c')
+      .replace(/[ÃƒÂ§Ãƒâ€¡]/g, 'c')
       .replace(/[gG]/g, 'g')
       .replace(/[iI]/g, 'i')
-      .replace(/[Ã¶Ã–]/g, 'o')
+      .replace(/[ÃƒÂ¶Ãƒâ€“]/g, 'o')
       .replace(/[sS]/g, 's')
-      .replace(/[Ã¼Ãœ]/g, 'u');
+      .replace(/[ÃƒÂ¼ÃƒÅ“]/g, 'u');
     return Array.from(new Set([
       base,
       folded,
@@ -2219,12 +2443,12 @@ export class RemAdapter {
     return (value || '')
       .normalize('NFC')
       .toLocaleLowerCase('tr-TR')
-      .replace(/[Ã§Ã‡]/g, 'c')
+      .replace(/[ÃƒÂ§Ãƒâ€¡]/g, 'c')
       .replace(/[gG]/g, 'g')
       .replace(/[iI]/g, 'i')
-      .replace(/[Ã¶Ã–]/g, 'o')
+      .replace(/[ÃƒÂ¶Ãƒâ€“]/g, 'o')
       .replace(/[sS]/g, 's')
-      .replace(/[Ã¼Ãœ]/g, 'u')
+      .replace(/[ÃƒÂ¼ÃƒÅ“]/g, 'u')
       .trim();
   }
 
@@ -2353,7 +2577,7 @@ export class RemAdapter {
       .filter(Boolean);
 
     const firstLine = (lines[0] || title || '').trim();
-    const bulletStripped = firstLine.replace(/^\s*[-*â€¢]+\s*/, '');
+    const bulletStripped = firstLine.replace(/^\s*[-*Ã¢â‚¬Â¢]+\s*/, '');
     const arrowStripped = bulletStripped.split('->')[0].trim();
     const metadataStripped = arrowStripped
       .replace(/\s*\[[^\]]+\]\s*$/g, '')
@@ -2765,7 +2989,6 @@ export class RemAdapter {
     if (!rem) {
       throw new Error('Failed to create Rem');
     }
-    const blankChildrenBefore = new Set<string>();
 
     // Set the title
     await rem.setText(await this.textToRichText(params.title));
@@ -2882,7 +3105,6 @@ export class RemAdapter {
     if (headingFontSize) {
       await this.applyHeadingLevel(rem, params.headingLevel);
     }
-    await this.removeNewBlankDirectChildren(rem, blankChildrenBefore);
 
     return { remId: rem._id, title: params.title };
   }
@@ -2937,7 +3159,7 @@ export class RemAdapter {
         dryRun: params.dryRun === true,
         mutationApplied: false,
         mode: 'create_link_rem',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         url: normalized.url,
         protocol: normalized.protocol,
         reason: params.dryRun === true
@@ -2971,7 +3193,7 @@ export class RemAdapter {
       dryRun: false,
       mutationApplied: true,
       mode: 'create_link_rem',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       remId: linkRem._id,
       url: normalized.url,
       protocol: normalized.protocol,
@@ -3241,7 +3463,6 @@ export class RemAdapter {
     if (!rem) {
       throw new Error(`Note not found: ${params.remId}`);
     }
-    const blankChildrenBefore = await this.getBlankDirectChildIds(rem);
 
     // RemNote may clear heading style when text is rewritten.
     // Preserve current heading unless caller explicitly overrides headingLevel.
@@ -3289,7 +3510,6 @@ export class RemAdapter {
       }
     }
 
-    await this.removeNewBlankDirectChildren(rem, blankChildrenBefore);
 
     return { success: true, remId: params.remId };
   }
@@ -3344,32 +3564,37 @@ export class RemAdapter {
   /**
    * Delete an existing note and its descendants.
    */
-  async deleteNote(params: DeleteNoteParams): Promise<{ success: boolean; remId: string }> {
+  async deleteNote(params: DeleteNoteParams): Promise<{ success: boolean; remId: string; [key: string]: unknown }> {
+    if (typeof params.remId !== 'string' || !params.remId.trim()) throw new Error('remId is required');
+    if (params.dryRun || params.confirm !== 'DELETE_NOTE' || params.allowDestructive !== true || params.expectedRemId !== params.remId) {
+      return { success: false, remId: params.remId, readOnly: true, mutationApplied: false, requiresConfirmation: true, confirmationText: 'DELETE_NOTE', required: ['allowDestructive=true', 'expectedRemId must match remId'] };
+    }
     const rem = await this.plugin.rem.findOne(params.remId);
     if (!rem) {
       throw new Error(`Note not found: ${params.remId}`);
     }
-    await rem.remove();
-    return { success: true, remId: params.remId };
+    await this.deleteRemSubtree(rem);
+    return { success: true, remId: params.remId, mutationApplied: true };
   }
 
   /**
    * Replace all direct children of a note with new content lines.
    */
-  async overwriteNoteContent(params: OverwriteNoteContentParams): Promise<{ success: boolean; remId: string }> {
+  async overwriteNoteContent(params: OverwriteNoteContentParams): Promise<{ success: boolean; remId: string; [key: string]: unknown }> {
+    if (typeof params.remId !== 'string' || !params.remId.trim()) throw new Error('remId is required');
+    if (typeof params.content !== 'string' || (!params.content.trim() && params.allowEmpty !== true)) {
+      throw new Error('content must be a non-empty string; intentional clearing requires allowEmpty=true');
+    }
+    if (params.dryRun || params.confirm !== 'OVERWRITE_NOTE_CONTENT' || params.allowDestructive !== true || params.expectedRemId !== params.remId) {
+      return { success: false, remId: params.remId, readOnly: true, mutationApplied: false, requiresConfirmation: true, confirmationText: 'OVERWRITE_NOTE_CONTENT', required: ['allowDestructive=true', 'expectedRemId must match remId'] };
+    }
     const rem = await this.plugin.rem.findOne(params.remId);
     if (!rem) {
       throw new Error(`Note not found: ${params.remId}`);
     }
 
     const existingChildren = await rem.getChildrenRem();
-    if (existingChildren && existingChildren.length > 0) {
-      for (const child of existingChildren) {
-        await child.remove();
-      }
-    }
-
-    const lines = (params.content || '')
+    const lines = params.content
       .split('\n')
       .map((line) => line.trim())
       .filter(Boolean);
@@ -3378,7 +3603,7 @@ export class RemAdapter {
 
     for (const line of lines) {
       const child = await this.plugin.rem.createRem();
-      if (!child) continue;
+      if (!child) throw new Error('Failed to prepare replacement; previous content retained');
       await child.setText(await this.textToRichText(line));
       if (fontSize) {
         await this.applyHeadingLevel(child, params.headingLevel);
@@ -3386,7 +3611,10 @@ export class RemAdapter {
       await child.setParent(rem);
     }
 
-    return { success: true, remId: params.remId };
+    // Do not remove old content until every replacement row has been prepared.
+    // A later SDK failure is not transactional; callers must reconcile, not retry.
+    for (const child of existingChildren || []) await child.remove();
+    return { success: true, remId: params.remId, mutationApplied: true };
   }
 
   /**
@@ -3410,11 +3638,7 @@ export class RemAdapter {
       throw new Error(`Failed to resolve summary rem after create: ${created.remId}`);
     }
 
-    // Ensure clean structure in case template/default children are inserted.
-    const existingChildren = await root.getChildrenRem();
-    for (const child of existingChildren) {
-      await child.remove();
-    }
+    // Template/default children belong to the user; adding a summary never removes them.
 
     for (const section of params.sections || []) {
       const headingText = (section.heading || '').trim();
@@ -3880,7 +4104,7 @@ export class RemAdapter {
     }
 
     const templates = [];
-    for (const child of await tag.getChildrenRem()) {
+    for (const child of await this.getStrictDirectChildren(tag)) {
       if (await child.isProperty()) continue;
       const title = (await this.getRemText(child)).trim();
       if (!title) continue;
@@ -3919,14 +4143,14 @@ export class RemAdapter {
 
     const existingTitles = new Set<string>();
     if (params.skipExistingChildTitles) {
-      for (const child of await target.getChildrenRem()) {
+      for (const child of await this.getStrictDirectChildren(target)) {
         existingTitles.add((await this.getRemText(child)).trim());
       }
     }
 
     const addedChildren: Array<{ remId: string; title: string }> = [];
     const skippedTitles: string[] = [];
-    for (const templateChild of await template.getChildrenRem()) {
+    for (const templateChild of await this.getStrictDirectChildren(template)) {
       const title = (await this.getRemText(templateChild)).trim();
       if (params.skipExistingChildTitles && existingTitles.has(title)) {
         skippedTitles.push(title);
@@ -4003,6 +4227,9 @@ export class RemAdapter {
   }
 
   async remRawCall(params: RemRawCallParams): Promise<{ remId: string; method: string; result: unknown }> {
+    if (!['getHiddenExplicitlyIncludedState', 'getPowerupProperty', 'getPowerupPropertyAsRichText', 'getPropertyType', 'getTagPropertyValue'].includes(params.method)) {
+      throw new Error('Generic raw calls are read-only; use the typed control action for mutations');
+    }
     const rem = await this.plugin.rem.findOne(params.remId);
     if (!rem) {
       throw new Error(`Rem not found: ${params.remId}`);
@@ -4072,7 +4299,7 @@ export class RemAdapter {
       readOnly: true,
       mutationApplied: false,
       mode: 'inspect_app_context',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       fields,
     };
   }
@@ -4112,7 +4339,7 @@ export class RemAdapter {
         dryRun: true,
         mutationApplied: false,
         mode: 'control_app',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         operation,
         before,
       };
@@ -4269,7 +4496,7 @@ export class RemAdapter {
         dryRun: params.dryRun === true,
         mutationApplied: false,
         mode: 'control_app',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         operation,
         reason: params.dryRun === true
           ? 'Dry run only; app action was not executed.'
@@ -4297,7 +4524,7 @@ export class RemAdapter {
       dryRun: false,
       mutationApplied: success && !readOnlyOperation,
       mode: 'control_app',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       operation,
       plannedCall,
       result: await this.serializeForBridge(result, valueDepth),
@@ -4326,7 +4553,7 @@ export class RemAdapter {
       readOnly: true,
       mutationApplied: false,
       mode: 'inspect_window_context',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       fields,
     };
   }
@@ -4364,7 +4591,7 @@ export class RemAdapter {
         dryRun: true,
         mutationApplied: false,
         mode: 'control_window',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         operation,
         before,
       };
@@ -4484,7 +4711,7 @@ export class RemAdapter {
         dryRun: params.dryRun === true,
         mutationApplied: false,
         mode: 'control_window',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         operation,
         reason: params.dryRun === true
           ? 'Dry run only; window action was not executed.'
@@ -4512,7 +4739,7 @@ export class RemAdapter {
       dryRun: false,
       mutationApplied: success && !readOnlyOperation,
       mode: 'control_window',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       operation,
       plannedCall,
       result: await this.serializeForBridge(result, valueDepth),
@@ -4546,7 +4773,7 @@ export class RemAdapter {
       readOnly: true,
       mutationApplied: false,
       mode: 'inspect_editor_context',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       fields,
     };
   }
@@ -4610,7 +4837,7 @@ export class RemAdapter {
         dryRun: true,
         mutationApplied: false,
         mode: 'control_editor',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         operation,
         before,
       };
@@ -4658,9 +4885,17 @@ export class RemAdapter {
       plannedCall.args = params.portalId ? [remIds, params.portalId] : [remIds];
       execute = () => editor.selectRem(remIds, params.portalId);
     } else if (operation === 'selectText') {
-      if (!params.range || typeof params.range !== 'object') throw new Error('control_editor selectText requires range object.');
-      plannedCall.args = [params.range];
-      execute = () => editor.selectText(params.range);
+      if (!params.range || typeof params.range !== 'object' || Array.isArray(params.range)) {
+        throw new Error('control_editor selectText requires range object.');
+      }
+      const { start, end } = params.range as { start?: unknown; end?: unknown };
+      if (typeof start !== 'number' || typeof end !== 'number' ||
+          !Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start) {
+        throw new Error('control_editor selectText requires safe nonnegative integer offsets with start <= end.');
+      }
+      const range = { start, end };
+      plannedCall.args = [range];
+      execute = () => editor.selectText(range);
     } else if (operation === 'collapseSelection') {
       const to = params.to === 'end' ? 'end' : 'start';
       plannedCall.args = [to];
@@ -4697,7 +4932,7 @@ export class RemAdapter {
         dryRun: params.dryRun === true,
         mutationApplied: false,
         mode: 'control_editor',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         operation,
         reason: params.dryRun === true
           ? 'Dry run only; editor action was not executed.'
@@ -4712,6 +4947,17 @@ export class RemAdapter {
     let result: unknown;
     let error: string | undefined;
     try {
+      if (operation === 'setText') {
+        // Read immediately before the SDK write; Rem/multiple/unknown selections can replace unrelated notes.
+        const selection = await editor.getSelection();
+        if (!selection || selection.type !== 'Text' || typeof selection.remId !== 'string' || !selection.remId.trim()) {
+          throw new Error('setText requires a readable single Text selection; use update_note(remId) for a targeted rename.');
+        }
+        if (params.expectedRemId !== undefined &&
+            (typeof params.expectedRemId !== 'string' || !params.expectedRemId.trim() || selection.remId !== params.expectedRemId)) {
+          throw new Error('setText expectedRemId does not match the active Text selection.');
+        }
+      }
       result = await execute();
       success = true;
     } catch (err) {
@@ -4728,8 +4974,12 @@ export class RemAdapter {
       readOnly: false,
       dryRun: false,
       mutationApplied: success && operation !== 'copy',
+      ...(operation === 'setText' ? {
+        verification: { status: 'unverified', persisted: false, sdkCallCompleted: success,
+          reason: 'SDK completion is not proof of persisted Rem content; no targeted readback was performed.' },
+      } : {}),
       mode: 'control_editor',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       operation,
       plannedCall,
       result: await this.serializeForBridge(result, valueDepth),
@@ -4760,7 +5010,7 @@ export class RemAdapter {
       readOnly: true,
       mutationApplied: false,
       mode: 'inspect_queue_context',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       fields,
     };
   }
@@ -4802,7 +5052,7 @@ export class RemAdapter {
         dryRun: true,
         mutationApplied: false,
         mode: 'control_practice_queue',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         operation,
         before,
       };
@@ -4830,7 +5080,7 @@ export class RemAdapter {
         dryRun: params.dryRun === true,
         mutationApplied: false,
         mode: 'control_practice_queue',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         operation,
         reason: params.dryRun === true
           ? 'Dry run only; queue action was not executed.'
@@ -4864,7 +5114,7 @@ export class RemAdapter {
       dryRun: false,
       mutationApplied: success,
       mode: 'control_practice_queue',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       operation,
       plannedCall,
       ...(error ? { error } : {}),
@@ -4940,7 +5190,7 @@ export class RemAdapter {
       readOnly: true,
       mutationApplied: false,
       mode: 'inspect_plugin_runtime',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       fields,
     };
   }
@@ -4980,7 +5230,7 @@ export class RemAdapter {
         dryRun: true,
         mutationApplied: false,
         mode: 'control_plugin_runtime',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         operation,
         before,
       };
@@ -5127,7 +5377,7 @@ export class RemAdapter {
         dryRun: params.dryRun === true,
         mutationApplied: false,
         mode: 'control_plugin_runtime',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         operation,
         reason: params.dryRun === true
           ? 'Dry run only; plugin runtime action was not executed.'
@@ -5155,7 +5405,7 @@ export class RemAdapter {
       dryRun: false,
       mutationApplied: success && !readOnlyOperation,
       mode: 'control_plugin_runtime',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       operation,
       plannedCall,
       result: await this.serializeForBridge(result, valueDepth),
@@ -5213,7 +5463,7 @@ export class RemAdapter {
       readOnly: true,
       mutationApplied: false,
       mode: 'inspect_powerup_registry',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       powerupCount: powerupCodes.length,
       slotProbeCount: slotRows.length,
       powerupCodes,
@@ -5243,7 +5493,7 @@ export class RemAdapter {
         dryRun: true,
         mutationApplied: false,
         mode: 'control_events',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         operation,
         before,
       };
@@ -5277,7 +5527,7 @@ export class RemAdapter {
         dryRun: params.dryRun === true,
         mutationApplied: false,
         mode: 'control_events',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         operation,
         reason: params.dryRun === true
           ? 'Dry run only; event listener action was not executed.'
@@ -5340,7 +5590,7 @@ export class RemAdapter {
       dryRun: false,
       mutationApplied,
       mode: 'control_events',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       operation,
       plannedCall,
       listenerId,
@@ -5378,7 +5628,7 @@ export class RemAdapter {
         dryRun: true,
         mutationApplied: false,
         mode: 'control_reader',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         operation,
         capabilities,
       };
@@ -5399,7 +5649,7 @@ export class RemAdapter {
         dryRun: params.dryRun === true,
         mutationApplied: false,
         mode: 'control_reader',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         operation,
         reason: params.dryRun === true
           ? 'Dry run only; no reader highlight was created.'
@@ -5434,7 +5684,7 @@ export class RemAdapter {
       dryRun: false,
       mutationApplied: success,
       mode: 'control_reader',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       operation,
       plannedCall,
       highlight: await this.serializeForBridge(highlight, valueDepth),
@@ -5467,7 +5717,7 @@ export class RemAdapter {
         dryRun: true,
         mutationApplied: false,
         mode: 'control_scheduler',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         operation,
         capabilities,
       };
@@ -5498,7 +5748,7 @@ export class RemAdapter {
         dryRun: params.dryRun === true,
         mutationApplied: false,
         mode: 'control_scheduler',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         operation,
         name,
         reason: params.dryRun === true
@@ -5526,7 +5776,7 @@ export class RemAdapter {
       dryRun: false,
       mutationApplied: success,
       mode: 'control_scheduler',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       operation,
       name,
       plannedCall,
@@ -5622,8 +5872,9 @@ export class RemAdapter {
           if (inspected >= 40) break;
           const key = `${cleanPowerupCode}.${slotCode}`;
           powerupProperties[key] = {
-            asRem: await this.captureSdkRead(() => rem.getPowerupPropertyAsRem(cleanPowerupCode as any, slotCode as any), valueDepth),
+            raw: await this.captureSdkRead(() => this.getRawPowerupProperty(rem, cleanPowerupCode, slotCode), valueDepth),
             asRichText: await this.captureSdkRead(() => rem.getPowerupPropertyAsRichText(cleanPowerupCode as any, slotCode as any), valueDepth),
+            asRem: { ok: false, skipped: true, reason: 'Skipped because getPowerupPropertyAsRem can create helper Rems in RemNote.' },
           };
           inspected += 1;
         }
@@ -5666,7 +5917,7 @@ export class RemAdapter {
       readOnly: true,
       mutationApplied: false,
       mode: 'inspect_rem_object_state',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       remId: rem._id,
       title: summary.title,
       fields,
@@ -5777,7 +6028,7 @@ export class RemAdapter {
       readOnly: true,
       mutationApplied: false,
       mode: 'inspect_rem_graph_context',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       remId: rem._id,
       title: summary.title,
       portalId: portalId ?? null,
@@ -5832,7 +6083,7 @@ export class RemAdapter {
         dryRun: true,
         mutationApplied: false,
         mode: 'control_rem_object_state',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         operation,
         before,
       };
@@ -5960,7 +6211,7 @@ export class RemAdapter {
         dryRun: params.dryRun === true,
         mutationApplied: false,
         mode: 'control_rem_object_state',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         operation,
         reason: params.dryRun === true
           ? 'Dry run only; RemObject state action was not executed.'
@@ -5993,7 +6244,7 @@ export class RemAdapter {
       dryRun: false,
       mutationApplied: success,
       mode: 'control_rem_object_state',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       operation,
       plannedCall,
       result: await this.serializeForBridge(result, valueDepth),
@@ -6038,7 +6289,7 @@ export class RemAdapter {
         dryRun: true,
         mutationApplied: false,
         mode: 'control_rem_structure',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         operation,
         before,
       };
@@ -6102,7 +6353,7 @@ export class RemAdapter {
         dryRun: params.dryRun === true,
         mutationApplied: false,
         mode: 'control_rem_structure',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         operation,
         reason: params.dryRun === true
           ? 'Dry run only; RemObject structure action was not executed.'
@@ -6122,7 +6373,7 @@ export class RemAdapter {
         dryRun: false,
         mutationApplied: false,
         mode: 'control_rem_structure',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         operation,
         reason: 'Merge operations are destructive and require allowDestructive=true plus destructiveConfirm=MERGE_REM.',
         plannedCall,
@@ -6157,7 +6408,7 @@ export class RemAdapter {
       dryRun: false,
       mutationApplied: success,
       mode: 'control_rem_structure',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       operation,
       plannedCall,
       result: await this.serializeForBridge(result, valueDepth),
@@ -6179,7 +6430,7 @@ export class RemAdapter {
       readOnly: true,
       mutationApplied: false,
       mode: 'inspect_focus_context',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       fields,
     };
   }
@@ -6190,7 +6441,7 @@ export class RemAdapter {
       readOnly: true,
       mutationApplied: false,
       mode: 'rich_text_parse_markdown',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       sourceLength: (params.markdown || '').length,
       ...(await this.summarizeRichText(richText, {
         includeHtml: params.includeHtml,
@@ -6223,7 +6474,7 @@ export class RemAdapter {
       readOnly: true,
       mutationApplied: false,
       mode: 'rich_text_format_range',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       operation: {
         mode,
         format: params.format,
@@ -6265,7 +6516,7 @@ export class RemAdapter {
       readOnly: true,
       mutationApplied: false,
       mode: 'rich_text_inspect',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       ...(await this.summarizeRichText(richText, {
         includeHtml: params.includeHtml,
         includeMarkdown: params.includeMarkdown,
@@ -6320,7 +6571,7 @@ export class RemAdapter {
         dryRun: params.dryRun === true,
         mutationApplied: false,
         mode: 'rich_text_insert_html',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         remId,
         htmlLength: html.length,
         reason: 'HTML import preflight blocked potentially unsafe tags, event attributes, or URL protocols. Pass allowUnsafeHtml=true only after manual review.',
@@ -6339,7 +6590,7 @@ export class RemAdapter {
         dryRun: params.dryRun === true,
         mutationApplied: false,
         mode: 'rich_text_insert_html',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         remId,
         htmlLength: html.length,
         reason: params.dryRun === true
@@ -6365,7 +6616,7 @@ export class RemAdapter {
       dryRun: false,
       mutationApplied: true,
       mode: 'rich_text_insert_html',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       remId,
       htmlLength: html.length,
       safety,
@@ -6387,10 +6638,10 @@ export class RemAdapter {
     const actionSet = new Set(actions);
 
     const matrix = [
-      { area: 'notes', status: 'supported', actions: ['create_note', 'create_link_rem', 'read_note', 'read_rem_full', 'inspect_rem_object_state', 'inspect_rem_graph_context', 'control_rem_object_state', 'control_rem_structure', 'probe_rem_ids', 'update_note', 'move_note', 'delete_note', 'overwrite_note_content', 'get_all_rems', 'export_vault_snapshot', 'safe_migration_plan', 'safe_migration_apply', 'safe_migration_audit_log', 'safe_migration_validate_rollback', 'safe_migration_apply_rollback'], note: 'Plain Rem, Markdown-backed Rem, confirmed Link Rem creation, RemObject state/graph inspection and confirmed state/structure/UI controls are exposed; destructive mutations remain typed, double-confirmed, or safe-migration gated.' },
+      { area: 'notes', status: 'supported', actions: ['create_note', 'create_link_rem', 'create_pinned_reference_note', 'update_pinned_reference_text', 'read_note', 'read_rem_full', 'inspect_rem_object_state', 'inspect_rem_graph_context', 'control_rem_object_state', 'control_rem_structure', 'probe_rem_ids', 'update_note', 'move_note', 'delete_note', 'overwrite_note_content', 'get_all_rems', 'export_vault_snapshot', 'safe_migration_plan', 'safe_migration_apply', 'safe_migration_audit_log', 'safe_migration_validate_rollback', 'safe_migration_apply_rollback'], note: 'Plain Rem, Markdown-backed Rem, pinned-reference rows, confirmed Link Rem creation, RemObject state/graph inspection and confirmed state/structure/UI controls are exposed; destructive mutations remain typed, double-confirmed, or safe-migration gated.' },
       { area: 'tags', status: 'supported', actions: ['get_rem_tags', 'list_tagged_rems', 'export_tag_view', 'add_tag_by_id', 'remove_tag_by_id'] },
       { area: 'properties', status: 'partial', actions: ['create_property', 'get_property_info', 'set_tag_property_value'], note: 'Native property type setter is blocked by RemNote SDK 0.0.46.' },
-      { area: 'templates', status: 'supported', actions: ['create_template', 'set_template_auto_apply', 'list_tag_templates', 'apply_template_to_rem', 'apply_tag_auto_template'] },
+      { area: 'templates', status: 'supported', actions: ['create_template', 'set_template_auto_apply', 'list_tag_templates', 'apply_template_to_rem', 'apply_tag_auto_template', 'clone_rem_subtree'] },
       { area: 'tables', status: 'partial', actions: ['create_table', 'list_table_rows', 'set_table_filter_raw'], note: 'Raw table filter accepts SDK SearchPortalQuery shape; native view configuration is UI-only.' },
       { area: 'flashcards_practice', status: 'supported', actions: ['create_flashcard', 'create_cloze_flashcard', 'update_flashcard_back', 'set_practice_state', 'export_practice_queue', 'export_card_catalog', 'read_card_full', 'control_card', 'control_practice_queue'], note: 'Practice Rem rows, SDK Card catalog/read paths, confirmed card remove/repetition updates, and live queue controls are exposed through typed dry-run and confirmation gates.' },
       { area: 'learning_inbox', status: 'supported', actions: ['export_learning_inbox', 'plan_learning_inbox_repairs', 'apply_learning_inbox_repairs'], note: 'Learning tag dashboard, dry-run repair plans, and confirmed property-only repair apply; card drafts remain suggestions.' },
@@ -6406,14 +6657,14 @@ export class RemAdapter {
       { area: 'window_control', status: 'supported', actions: ['debug_window_context', 'control_window'], note: 'Window tree, pane, URL and Rem pane state are readable; focus, URL, tree, floating widget, widget pane/sidebar and key-capture operations use a typed confirmation gate with dry-run planned calls.' },
       { area: 'editor_control', status: 'supported', actions: ['inspect_editor_context', 'control_editor'], note: 'Active editor selection/text/caret state is readable; setText, insert, selection, caret, clipboard, delete, undo and redo operations use a typed confirmation gate with dry-run planned calls.' },
       { area: 'sdk_namespace_read', status: 'supported', actions: ['sdk_namespace_call', 'inspect_app_context', 'inspect_editor_context', 'inspect_queue_context', 'inspect_plugin_runtime', 'inspect_focus_context', 'inspect_powerup_registry', 'inspect_rem_object_state', 'inspect_rem_graph_context', 'export_card_catalog', 'read_card_full', 'control_app', 'control_plugin_runtime', 'control_practice_queue', 'control_card', 'control_editor', 'control_events', 'control_reader', 'control_scheduler', 'control_rem_object_state', 'control_rem_structure'], note: 'Read-only App/Window/Editor/Queue/Date/RichText/Storage/Settings/KnowledgeBase/Focus/Card/Powerup namespace calls are allowlisted; inspectors expose UI, editor selection, platform, queue, plugin runtime, knowledge base, focus, powerup, RemObject state/graph and card state, while app/plugin-runtime/editor/queue/card/event/reader/scheduler/RemObject mutations use typed confirmation gates.' },
-      { area: 'plugin_runtime', status: 'supported', actions: ['inspect_plugin_runtime', 'control_plugin_runtime', 'control_app'], note: 'Bridge settings, known plugin storage keys and current knowledge base metadata are readable for MCP debugging; plugin storage writes, setting registration, widget popup/context reads, and messaging broadcast are available via dry-run and confirmation gates.' },
+      { area: 'plugin_runtime', status: 'supported', actions: ['inspect_plugin_runtime', 'control_plugin_runtime', 'control_app', 'host_remnote_rontgen_snapshot'], note: 'Bridge settings, known plugin storage keys, current knowledge base metadata, and host/CDP rontgen snapshots are readable for MCP debugging; plugin storage writes, setting registration, widget popup/context reads, and messaging broadcast are available via dry-run and confirmation gates.' },
       { area: 'plugin_runtime_control', status: 'supported', actions: ['inspect_plugin_runtime', 'control_plugin_runtime'], note: 'Storage get/set, Settings get/register, Widget get/open/close, and Messaging broadcast are typed; read operations stay read-only and mutations require confirmation.' },
       { area: 'focus_context', status: 'supported', actions: ['inspect_focus_context'], note: 'Focused Rem and focused portal are readable through the SDK focus namespace without changing editor state.' },
       { area: 'rich_text', status: 'supported', actions: ['sdk_namespace_call', 'rich_text_parse_markdown', 'rich_text_format_range', 'rich_text_inspect', 'rich_text_insert_html'], note: 'Markdown parsing, range formatting, string/markdown/html/reference inspection, generic pure RichText namespace calls, and confirmed HTML-to-Rem import are exposed. HTML import has dry-run, preflight blocking, and explicit confirmation because it writes parsed Rems.' },
-      { area: 'ui_view_configuration', status: 'partial', actions: ['open_note', 'inject_css', 'debug_window_context', 'control_window', 'inspect_app_context', 'control_app', 'inspect_editor_context', 'control_editor', 'sdk_namespace_call'], note: 'Open panes, focus, URL and editor selection are readable; Window/App UI registrations and editor selection/caret changes are confirmation-gated; tag page sort/view clicks still need UI automation when not exposed by SDK.' },
-      { area: 'sdk_surface_audit', status: 'supported', actions: ['capability_inspector', 'sdk_gap_report', 'host_remnote_sdk_surface_gap_report'], note: 'Capability inspector exposes action/allowlist matrix; host SDK surface report reads local @remnote/plugin-sdk declaration files and action coverage to identify typed-action gaps.' },
+      { area: 'ui_view_configuration', status: 'partial', actions: ['open_note', 'inject_css', 'debug_window_context', 'control_window', 'inspect_app_context', 'control_app', 'inspect_editor_context', 'control_editor', 'sdk_namespace_call', 'host_remnote_rontgen_snapshot'], note: 'Open panes, focus, URL, editor selection, live DOM samples, hit-test diagnostics and screenshot capture are readable; Window/App UI registrations and editor selection/caret changes are confirmation-gated; tag page sort/view clicks still need UI automation when not exposed by SDK.' },
+      { area: 'sdk_surface_audit', status: 'supported', actions: ['capability_inspector', 'sdk_gap_report', 'host_remnote_sdk_surface_gap_report', 'host_remnote_rontgen_snapshot'], note: 'Capability inspector exposes action/allowlist matrix; host SDK surface report reads local @remnote/plugin-sdk declaration files and action coverage, while rontgen links host/CDP/runtime evidence into one read-only snapshot.' },
       { area: 'vault_snapshot', status: 'supported', actions: ['export_vault_snapshot', 'host_remnote_vault_snapshot_export', 'host_remnote_vault_snapshot_export_partitioned', 'host_remnote_vault_export_catalog', 'host_remnote_vault_export_query', 'host_remnote_vault_export_field_profile', 'host_remnote_vault_export_schema_profile', 'host_remnote_vault_export_stats', 'host_remnote_vault_export_stats_aggregate', 'host_remnote_vault_quality_report', 'host_remnote_vault_export_graph', 'host_remnote_vault_export_graph_file', 'host_remnote_vault_graph_export_catalog', 'host_remnote_vault_graph_export_query', 'host_remnote_vault_export_diff'], note: 'Read-only, paginated SDK-visible vault snapshot with optional raw text, relation, property, and practice/card blocks; host actions write single-file or partitioned JSONL plus manifest into the local cache. Query and stats can use cursorMode/nextCursor for resumable pages, schema_profile maps field paths/types/samples, field_profile maps selected field value distributions and can reuse query/rem/tag/parent/time filters, stats_aggregate produces one merged inventory rollup with chunk/page summaries, quality_report separates export schema coverage from real missing timestamp/title/property/relation/practice signals and includes a read-only repairPlanPreview, and query/field/schema/stat/aggregate/quality/graph/streaming graph-file/diff can read all partition parts automatically when exportId/exportDir selects a partitioned export.' },
-      { area: 'internal_database_read', status: 'partial', actions: ['indexeddb_inventory', 'indexeddb_read_store', 'host_remnote_db_inventory', 'host_remnote_db_doctor_scan', 'host_remnote_leveldb_snapshot_scan', 'host_remnote_leveldb_decode', 'host_remnote_leveldb_log_decode', 'host_remnote_leveldb_entity_index', 'host_remnote_leveldb_graph_export', 'host_remnote_leveldb_sdk_map', 'host_remnote_vault_snapshot_export', 'host_remnote_vault_snapshot_export_partitioned', 'host_remnote_vault_export_catalog', 'host_remnote_vault_export_query', 'host_remnote_vault_export_field_profile', 'host_remnote_vault_export_schema_profile', 'host_remnote_vault_export_stats', 'host_remnote_vault_export_stats_aggregate', 'host_remnote_vault_quality_report', 'host_remnote_vault_export_graph', 'host_remnote_vault_export_graph_file', 'host_remnote_vault_graph_export_catalog', 'host_remnote_vault_graph_export_query', 'host_remnote_vault_export_diff', 'probe_rem_ids'], note: 'IndexedDB inventory/store snapshots run in the plugin; host-side AppData LevelDB work uses copied read-only snapshots plus table/log key/value previews, heuristic entity indexes, SDK-enriched DB graph exports, one-call SDK reconciliation maps, DB Doctor scans, SDK Rem ID probes, and SDK-visible vault JSONL single-file/partitioned export catalog/query/field-profile/schema-profile/stat/stat-aggregate/quality-report/graph/graph-file/graph-catalog/graph-query/diff with all-part reads for partitioned exports.' },
+      { area: 'internal_database_read', status: 'partial', actions: ['indexeddb_inventory', 'indexeddb_read_store', 'host_remnote_rontgen_snapshot', 'host_remnote_db_inventory', 'host_remnote_db_doctor_scan', 'host_remnote_leveldb_snapshot_scan', 'host_remnote_leveldb_decode', 'host_remnote_leveldb_log_decode', 'host_remnote_leveldb_entity_index', 'host_remnote_leveldb_graph_export', 'host_remnote_leveldb_sdk_map', 'host_remnote_vault_snapshot_export', 'host_remnote_vault_snapshot_export_partitioned', 'host_remnote_vault_export_catalog', 'host_remnote_vault_export_query', 'host_remnote_vault_export_field_profile', 'host_remnote_vault_export_schema_profile', 'host_remnote_vault_export_stats', 'host_remnote_vault_export_stats_aggregate', 'host_remnote_vault_quality_report', 'host_remnote_vault_export_graph', 'host_remnote_vault_export_graph_file', 'host_remnote_vault_graph_export_catalog', 'host_remnote_vault_graph_export_query', 'host_remnote_vault_export_diff', 'probe_rem_ids'], note: 'IndexedDB inventory/store snapshots run in the plugin; host-side AppData LevelDB work uses copied read-only snapshots plus table/log key/value previews, heuristic entity indexes, SDK-enriched DB graph exports, one-call SDK reconciliation maps, DB Doctor scans, SDK Rem ID probes, rontgen DB inventory, and SDK-visible vault JSONL single-file/partitioned export catalog/query/field-profile/schema-profile/stat/stat-aggregate/quality-report/graph/graph-file/graph-catalog/graph-query/diff with all-part reads for partitioned exports.' },
       { area: 'internal_database_write', status: 'unsafe_internal_db', actions: [], note: 'Direct DB writes are intentionally not implemented; use SDK writes or read-only snapshots only.' },
       { area: 'doctor', status: 'supported', actions: ['remnote_doctor_scan', 'plan_remnote_doctor_repairs', 'apply_remnote_doctor_repairs', 'host_remnote_db_doctor_scan'], note: 'SDK Doctor scans can now produce safe migration repair plans and confirmed applies for missing dates plus explicitly allowed blank-child cleanup.' },
       { area: 'safe_migration', status: 'supported', actions: ['safe_migration_plan', 'safe_migration_apply', 'safe_migration_audit_log', 'safe_migration_validate_rollback', 'safe_migration_apply_rollback'], note: 'Plan is dry-run only; apply requires confirmation text and blocks high-risk/delete operations unless explicitly allowed. Successful applies write a compact audit record; rollback validation stays read-only and rollback apply needs separate confirmation.' },
@@ -6424,7 +6675,7 @@ export class RemAdapter {
     }));
 
     return {
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       sdkVersion: '0.0.46',
       actionCount: actions.length,
       actions,
@@ -6435,7 +6686,7 @@ export class RemAdapter {
         status: 'host_verified_available',
         hostAction: 'host_remnote_sdk_surface_gap_report',
         expectedTool: 'check_action_coverage.ps1 -FailOnUncovered',
-        latestExpectedSummary: '150 action, 150 covered, 0 uncovered',
+        latestExpectedSummary: '152 action, 152 covered, 0 uncovered',
       },
       matrix,
       knownSdkBlocks: [
@@ -6466,7 +6717,7 @@ export class RemAdapter {
   async getSdkGapReport(params: CapabilityInspectorParams = {}): Promise<unknown> {
     const inspector = await this.getCapabilityInspector(params) as Record<string, unknown>;
     return {
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       sdkVersion: '0.0.46',
       matrix: inspector.matrix,
       sdkRemMethodAllowlist: inspector.sdkRemMethodAllowlist,
@@ -7040,6 +7291,9 @@ export class RemAdapter {
       case 'delete_note':
         return this.deleteNote({
           remId: String(payload.remId || ''),
+          expectedRemId: String(payload.remId || ''),
+          allowDestructive: true,
+          confirm: 'DELETE_NOTE',
         });
       default:
         throw new Error(`safe_migration_apply does not support action: ${operation.action}`);
@@ -8360,7 +8614,7 @@ export class RemAdapter {
       readOnly: true,
       mutationApplied: false,
       mode,
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       scanned: cards.length,
       matched: filteredRows.length,
       returned: page.length,
@@ -8409,7 +8663,7 @@ export class RemAdapter {
       readOnly: true,
       mutationApplied: false,
       mode: 'read_card_full',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       cardId: params.cardId,
       remId: params.remId,
       found: rows.length > 0,
@@ -8454,7 +8708,7 @@ export class RemAdapter {
         dryRun: true,
         mutationApplied: false,
         mode: 'control_card',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         operation,
         cardId,
         found: Boolean(card),
@@ -8482,7 +8736,7 @@ export class RemAdapter {
         dryRun: params.dryRun === true,
         mutationApplied: false,
         mode: 'control_card',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         operation,
         cardId,
         found: Boolean(card),
@@ -8501,7 +8755,7 @@ export class RemAdapter {
         dryRun: false,
         mutationApplied: false,
         mode: 'control_card',
-        pluginVersion: '2.58.0',
+        pluginVersion: BRIDGE_PLUGIN_VERSION,
         operation,
         cardId,
         found: false,
@@ -8538,7 +8792,7 @@ export class RemAdapter {
       dryRun: false,
       mutationApplied: success,
       mode: 'control_card',
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       operation,
       cardId,
       foundBefore: Boolean(card),
@@ -9234,7 +9488,7 @@ export class RemAdapter {
   }> {
     return {
       connected: true,
-      pluginVersion: '2.58.0',
+      pluginVersion: BRIDGE_PLUGIN_VERSION,
       knowledgeBaseId: undefined
     };
   }
@@ -9333,11 +9587,22 @@ export class RemAdapter {
     headingLevel?: number;
     tags?: string[];
     mergeStrategy?: 'overwrite_if_exact_title' | 'append_sections';
+    confirm?: string;
+    allowDestructive?: boolean;
+    expectedRemId?: string;
+    dryRun?: boolean;
+    allowEmpty?: boolean;
     metadata?: Record<string, string>;
     sections: Array<{ heading: string; body: string; imageUrls?: string[] }>;
-  }): Promise<{ remId: string; title: string; status: 'created' | 'updated' }> {
+  }): Promise<{ remId: string; title: string; status: 'created' | 'updated' | 'preview'; [key: string]: unknown }> {
     const title = (params.title || '').trim();
     if (!title) throw new Error('title is required');
+    if (!Array.isArray(params.sections)) throw new Error('sections must be an explicit array');
+    for (const section of params.sections) {
+      if (!section || typeof section.heading !== 'string' || typeof section.body !== 'string') throw new Error('Each section requires string heading and body');
+    }
+    if (params.mergeStrategy && !['overwrite_if_exact_title', 'append_sections'].includes(params.mergeStrategy)) throw new Error('Unsupported mergeStrategy');
+    if (params.dryRun) return { remId: params.expectedRemId || '', title, status: 'preview', readOnly: true, mutationApplied: false };
 
     // Resolve effective parentId from path or parentId
     let effectiveParentId = params.parentId;
@@ -9355,32 +9620,38 @@ export class RemAdapter {
     let existingRem: PluginRem | undefined;
     const variants = this.buildNameVariants(title);
     for (const v of variants) {
-      existingRem = await this.plugin.rem.findByName([v], effectiveParentId ?? null);
-      if (existingRem) break;
+      const candidate = await this.plugin.rem.findByName([v], effectiveParentId ?? null);
+      if (candidate && (await this.getRemText(candidate)).trim().normalize('NFC') === title.normalize('NFC')
+        && (!effectiveParentId || (await candidate.getParentRem())?._id === effectiveParentId)) {
+        existingRem = candidate;
+        break;
+      }
     }
 
     if (!existingRem && !effectiveParentId) {
       for (const v of variants) {
         const results = await this.plugin.search.search(this.textToPlainRichText(v), undefined, { numResults: 1 });
-        if (results && results.length > 0) { existingRem = results[0]; break; }
+        const candidate = results?.[0];
+        if (candidate && (await this.getRemText(candidate)).trim().normalize('NFC') === title.normalize('NFC')) { existingRem = candidate; break; }
       }
     }
 
     const strategy = params.mergeStrategy || 'overwrite_if_exact_title';
 
     if (existingRem) {
-      // Update existing
-      if (strategy === 'overwrite_if_exact_title') {
-        const existingChildren = await existingRem.getChildrenRem();
-        for (const c of existingChildren) await c.remove();
+      if (strategy === 'overwrite_if_exact_title' && (params.confirm !== 'UPSERT_STRUCTURED_NOTE' || params.allowDestructive !== true || params.expectedRemId !== existingRem._id)) {
+        return { remId: existingRem._id, title, status: 'preview', readOnly: true, mutationApplied: false, requiresConfirmation: true, confirmationText: 'UPSERT_STRUCTURED_NOTE', required: ['allowDestructive=true', 'expectedRemId must match remId'] };
       }
+      const hasReplacement = params.sections.some(section => section.heading.trim() || section.body.trim() || this.normalizeImageUrls(section.imageUrls).length);
+      if (strategy === 'overwrite_if_exact_title' && !hasReplacement && params.allowEmpty !== true) throw new Error('Empty overwrite requires allowEmpty=true');
+      const previousChildren = strategy === 'overwrite_if_exact_title' ? await existingRem.getChildrenRem() : [];
       for (const section of params.sections || []) {
         const headingText = (section.heading || '').trim();
         const bodyText = (section.body || '').trim();
         const imageUrls = this.normalizeImageUrls(section.imageUrls);
         if (!headingText && !bodyText && imageUrls.length === 0) continue;
         const headerRem = await this.plugin.rem.createRem();
-        if (!headerRem) continue;
+        if (!headerRem) throw new Error('Failed to prepare section; previous content retained');
         await headerRem.setText(await this.textToRichText(`***${headingText || 'Section'}***`));
         await headerRem.setParent(existingRem);
         if (bodyText) {
@@ -9388,11 +9659,12 @@ export class RemAdapter {
           if (bodyRem) {
             await bodyRem.setText(await this.textToRichText(bodyText));
             await bodyRem.setParent(headerRem);
-          }
+          } else throw new Error('Failed to prepare section body; previous content retained');
         }
         await this.appendImageRems(headerRem, imageUrls);
       }
-      return { remId: existingRem._id, title: await this.getRemText(existingRem), status: 'updated' };
+      for (const child of previousChildren) await child.remove();
+      return { remId: existingRem._id, title: await this.getRemText(existingRem), status: 'updated', mutationApplied: true };
     }
 
     // Create new
@@ -9452,7 +9724,7 @@ export class RemAdapter {
   }
 
   /**
-   * Get sidebar shortcuts â€” reads from synced plugin storage.
+   * Get sidebar shortcuts ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â reads from synced plugin storage.
    * Native SDK sidebar pin API does not exist in v0.0.46.
    * Use open_note to navigate to a pinned doc.
    */
@@ -9489,7 +9761,7 @@ export class RemAdapter {
         const rem = await this.plugin.rem.findOne(params.remId);
         if (rem) title = await this.getRemText(rem);
       } catch {
-        // ignore â€” use remId as fallback
+        // ignore ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â use remId as fallback
       }
       if (!title) title = params.remId;
     }
@@ -9545,7 +9817,7 @@ export class RemAdapter {
     return { ok: true, query, count: 0, strategy: 'stub' };
   }
 
-  // -- NEW METHODS (v2.1.0 â€” Antigravity Enhanced) --------------------------
+  // -- NEW METHODS (v2.1.0 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Antigravity Enhanced) --------------------------
 
   /**
    * Create a proper flashcard using RemNote SDK (not just text formatting).
@@ -9558,7 +9830,7 @@ export class RemAdapter {
     // Set front text
     await rem.setText(await this.textToRichText(params.front));
 
-    // Set back text â€” this is what makes it a REAL flashcard
+    // Set back text ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â this is what makes it a REAL flashcard
     await rem.setBackText(await this.textToRichText(params.back));
 
     // Activate as card item in the SRS queue
@@ -9603,7 +9875,7 @@ export class RemAdapter {
         await detailRem.setParent(rem);
         // Tag as extra card detail power-up
         try {
-          await detailRem.addPowerup('e');  // BuiltInPowerupCodes for ExtraCardDetail
+          await detailRem.addPowerup(EXTRA_CARD_DETAIL_POWERUP_CODE);
         } catch (e) {
           console.warn('Could not add ExtraCardDetail powerup', e);
         }
@@ -9663,7 +9935,7 @@ export class RemAdapter {
       plain += text.slice(i, openIdx);
       const closeIdx = text.indexOf(CLOSE, openIdx + OPEN.length);
       if (closeIdx === -1) {
-        // unclosed marker â€” treat rest as plain
+        // unclosed marker ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â treat rest as plain
         plain += text.slice(openIdx);
         break;
       }
@@ -9675,7 +9947,7 @@ export class RemAdapter {
     }
 
     if (clozeRanges.length === 0) {
-      // No cloze markers found â€” return plain text
+      // No cloze markers found ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â return plain text
       return this.textToPlainRichText(text);
     }
 
@@ -9694,7 +9966,7 @@ export class RemAdapter {
   /**
    * Create a cloze deletion flashcard.
    * Text with {{cloze}} markers becomes a real fill-in-the-blank card.
-   * Uses SDK applyTextFormatToRange with 'cloze' format â€” no plain-text workaround.
+   * Uses SDK applyTextFormatToRange with 'cloze' format ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â no plain-text workaround.
    */
   async createClozeFlashcard(params: {
     parentId: string;
@@ -9743,7 +10015,6 @@ export class RemAdapter {
   }): Promise<{ success: boolean; remId: string; powerup: string }> {
     const rem = await this.plugin.rem.findOne(params.remId);
     if (!rem) throw new Error(`Note not found: ${params.remId}`);
-    const blankChildrenBefore = await this.getBlankDirectChildIds(rem);
 
     // Map friendly names to BuiltInPowerupCodes
     const powerupMap: Record<string, string> = {
@@ -9757,7 +10028,7 @@ export class RemAdapter {
       'highlight-purple': 'hp',
       'edit-later': 'l',
       'suspend-cards': 's',
-      'extra-card-detail': 'e',
+      'extra-card-detail': EXTRA_CARD_DETAIL_POWERUP_CODE,
       'auto-sort': 'as',
       'header-1': 'h1',
       'header-2': 'h2',
@@ -9769,14 +10040,9 @@ export class RemAdapter {
 
     const code = powerupMap[params.powerup] || params.powerup;
 
-    try {
-      await rem.addPowerup(code);
-    } catch (e) {
-      // Fallback: try as-is if mapping didn't work
-      console.warn(`Powerup code "${code}" failed, trying raw: "${params.powerup}"`, e);
-      await rem.addPowerup(params.powerup);
-    }
-    await this.removeNewBlankDirectChildren(rem, blankChildrenBefore);
+    // A rejected SDK response may follow an applied mutation. Never retry with
+    // a different name or silently replace a Power-Up with an ordinary tag.
+    await rem.addPowerup(code);
 
     return { success: true, remId: params.remId, powerup: params.powerup };
   }
@@ -9793,7 +10059,7 @@ export class RemAdapter {
 
     const powerupMap: Record<string, string> = {
       'todo': 't', 'highlight': 'h', 'edit-later': 'l',
-      'suspend-cards': 's', 'extra-card-detail': 'e', 'auto-sort': 'as',
+      'suspend-cards': 's', 'extra-card-detail': EXTRA_CARD_DETAIL_POWERUP_CODE, 'auto-sort': 'as',
     };
     const code = powerupMap[params.powerup] || params.powerup;
     await rem.removePowerup(code);
@@ -9802,7 +10068,7 @@ export class RemAdapter {
   }
 
   /**
-   * Create a portal â€” embed one Rem inside another.
+   * Create a portal ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â embed one Rem inside another.
    * The portal shows live content that syncs across all locations.
    */
   async createPortal(params: {
@@ -9852,6 +10118,131 @@ export class RemAdapter {
     await rem.setText(richText);
 
     return { success: true, remId: params.remId, targetRemId: params.targetRemId };
+  }
+
+  /**
+   * Create a new Rem whose visible text is clean prose plus a pinned reference
+   * to an existing Rem. This preserves reader/PDF highlight navigation because
+   * the reference points to the original highlight Rem rather than copying it.
+   */
+  async createPinnedReferenceNote(params: CreatePinnedReferenceNoteParams): Promise<{
+    success: boolean;
+    dryRun: boolean;
+    remId?: string;
+    parentId: string;
+    targetRemId: string;
+    text: string;
+    positionAmongstSiblings?: number;
+    pin: boolean;
+  }> {
+    const parent = await this.plugin.rem.findOne(params.parentId);
+    if (!parent) throw new Error(`Parent Rem not found: ${params.parentId}`);
+
+    const target = await this.plugin.rem.findOne(params.targetRemId);
+    if (!target) throw new Error(`Target Rem not found: ${params.targetRemId}`);
+
+    const text = String(params.text || '').trim();
+    if (!text) throw new Error('create_pinned_reference_note requires non-empty text.');
+
+    const pin = params.pin !== false;
+    const positionAmongstSiblings = typeof params.positionAmongstSiblings === 'number'
+      ? params.positionAmongstSiblings
+      : undefined;
+    const richText: RichTextInterface = [
+      text,
+      { i: 'q', content: false, pin, _id: target._id } as any,
+    ];
+
+    if (params.dryRun === true) {
+      return {
+        success: true,
+        dryRun: true,
+        parentId: parent._id,
+        targetRemId: target._id,
+        text,
+        positionAmongstSiblings,
+        pin,
+      };
+    }
+
+    const rem = await this.plugin.rem.createRem();
+    if (!rem) throw new Error('Failed to create pinned reference Rem');
+
+    await rem.setText(richText);
+    await rem.setParent(parent, positionAmongstSiblings);
+
+    return {
+      success: true,
+      dryRun: false,
+      remId: rem._id,
+      parentId: parent._id,
+      targetRemId: target._id,
+      text,
+      positionAmongstSiblings,
+      pin,
+    };
+  }
+
+  async updatePinnedReferenceText(params: UpdatePinnedReferenceTextParams): Promise<{
+    success: boolean;
+    dryRun: boolean;
+    remId: string;
+    text: string;
+    targetRemId: string;
+    before: unknown;
+    after: RichTextInterface;
+  }> {
+    const rem = await this.plugin.rem.findOne(params.remId);
+    if (!rem) throw new Error(`Note not found: ${params.remId}`);
+
+    const text = String(params.text || '').trim();
+    if (!text) throw new Error('update_pinned_reference_text requires non-empty text.');
+
+    const rawText = await this.getRawRichText(rem, 'text');
+    if (!Array.isArray(rawText)) {
+      throw new Error('update_pinned_reference_text requires array RichText on the target Rem.');
+    }
+
+    const pinnedRefs = rawText.filter((entry) =>
+      entry && typeof entry === 'object' && (entry as any).i === 'q' && (entry as any).pin === true
+    );
+    const pinnedRef = params.targetRemId
+      ? pinnedRefs.find((entry) => (entry as any)._id === params.targetRemId)
+      : pinnedRefs.length === 1 ? pinnedRefs[0] : undefined;
+
+    if (!pinnedRef) {
+      throw new Error(params.targetRemId
+        ? `Pinned reference not found for targetRemId: ${params.targetRemId}`
+        : `Expected exactly one pinned reference, found ${pinnedRefs.length}.`);
+    }
+
+    const after: RichTextInterface = [
+      text,
+      { ...(pinnedRef as Record<string, unknown>), i: 'q', pin: true } as any,
+    ];
+
+    if (params.dryRun === true) {
+      return {
+        success: true,
+        dryRun: true,
+        remId: rem._id,
+        text,
+        targetRemId: (pinnedRef as any)._id,
+        before: rawText,
+        after,
+      };
+    }
+
+    await rem.setText(after);
+    return {
+      success: true,
+      dryRun: false,
+      remId: rem._id,
+      text,
+      targetRemId: (pinnedRef as any)._id,
+      before: rawText,
+      after,
+    };
   }
 
   /**
@@ -9918,4 +10309,3 @@ export class RemAdapter {
     return { created: results.length, cards: results };
   }
 }
-

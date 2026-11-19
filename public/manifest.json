@@ -3,10 +3,10 @@
   "id": "remnote-mcp-bridge-y-edition-dev-2",
   "name": "MCP Bridge (Y Edition Dev)",
   "author": "Yavuz Uysal",
-  "description": "Local-dev RemNote MCP Bridge with typed vault export, graph, flashcard, safe migration, and read-only DB diagnostic workflows.",
+  "description": "Connect RemNote to AI assistants (Claude, GPT, etc.) via MCP. Extended fork with structured summaries, table workflows, and robust formatting controls.",
   "version": {
     "major": 2,
-    "minor": 58,
+    "minor": 61,
     "patch": 0
   },
   "repoUrl": "https://github.com/riyadist/remnote-mcp-bridge",

@@ -1,7 +1,7 @@
 param(
     [string]$HostBaseUrl = 'http://127.0.0.1:3400',
     [string]$ParentRemId = 'ubgqlPRB62rYIoGn1',
-    [string]$ExpectedPluginVersion = '2.58.0',
+    [string]$ExpectedPluginVersion = (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'package.json') -Raw | ConvertFrom-Json).version,
     [string]$OutputPath = ''
 )
 
@@ -42,6 +42,7 @@ function Assert-True {
 }
 
 $suffix = Get-Date -Format 'yyyyMMdd_HHmmss'
+$testImageDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII='
 $cleanupRemIds = New-Object System.Collections.Generic.List[string]
 
 $result = [ordered]@{
@@ -72,6 +73,20 @@ try {
         front = "front-$suffix"
         back = "back-$suffix"
         type = 'forward'
+        detailToggles = @(
+            @{
+                title = "Details-$suffix"
+                collapsed = $false
+                children = @(
+                    @{
+                        title = "Meaning-$suffix"
+                        body = "explanation-$suffix"
+                        imageUrls = @($testImageDataUrl)
+                        collapsed = $false
+                    }
+                )
+            }
+        )
         tags = @('smoke-flashcard')
     }
     $cleanupRemIds.Add([string]$result.create_flashcard.remId) | Out-Null
@@ -142,6 +157,33 @@ try {
     $childIds = @($result.read_parent_before_cleanup.children | ForEach-Object { $_.remId })
     Assert-True ($childIds -contains $result.create_flashcard.remId) 'Parent read did not include created flashcard.'
     Assert-True ($childIds -contains $result.create_cloze_flashcard.remId) 'Parent read did not include created cloze flashcard.'
+
+    $result.read_created_flashcard = Invoke-BridgeAction -Action 'read_note' -Payload @{
+        remId = $result.create_flashcard.remId
+        depth = 3
+    }
+    $detailRoot = @($result.read_created_flashcard.children | Where-Object { $_.text -eq "Details-$suffix" } | Select-Object -First 1)
+    Assert-True ($detailRoot.Count -eq 1) 'create_flashcard did not create detail toggle root.'
+    $detailChild = @($detailRoot[0].children | Where-Object { $_.text -eq "Meaning-$suffix" } | Select-Object -First 1)
+    Assert-True ($detailChild.Count -eq 1) 'create_flashcard did not create detail toggle child.'
+    $detailGrandchildren = @($detailChild[0].children)
+    Assert-True ($detailGrandchildren.Count -ge 2) 'create_flashcard detail child did not include body plus image child.'
+
+    $result.inspect_detail_root = Invoke-BridgeAction -Action 'inspect_rem_object_state' -Payload @{
+        remId = $detailRoot[0].remId
+        powerupCodes = @('x', 'e')
+        includePowerups = $true
+    }
+    Assert-True ($result.inspect_detail_root.fields.powerups.hasPowerup.x.value -eq $true) 'detail toggle root is missing Extra Card Detail power-up.'
+    Assert-True ($result.inspect_detail_root.fields.powerups.hasPowerup.e.value -ne $true) 'detail toggle root should not have Edit Later power-up.'
+
+    $result.inspect_detail_child = Invoke-BridgeAction -Action 'inspect_rem_object_state' -Payload @{
+        remId = $detailChild[0].remId
+        powerupCodes = @('x', 'e')
+        includePowerups = $true
+    }
+    Assert-True ($result.inspect_detail_child.fields.powerups.hasPowerup.x.value -ne $true) 'detail child should not have Extra Card Detail power-up.'
+    Assert-True ($result.inspect_detail_child.fields.powerups.hasPowerup.e.value -ne $true) 'detail child should not have Edit Later power-up.'
 }
 finally {
     foreach ($remId in ($cleanupRemIds | Select-Object -Unique | Sort-Object -Descending)) {

@@ -4,7 +4,29 @@ var path = require('path');
 
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const { ESBuildMinifyPlugin } = require('esbuild-loader');
-const { ProvidePlugin, BannerPlugin } = require('webpack');
+const { ProvidePlugin, BannerPlugin, DefinePlugin } = require('webpack');
+const fs = require('fs');
+
+// Kişisel ilk değerler (Eisenhower belge ve etiket kimlikleri, MyDrive klasör kimliği) yalnız yerel dev-2
+// derlemesine gömülür. Pazar yeri derlemesinde (manifest kimliği farklı ya da
+// REMNOTE_BUILD_TARGET=marketplace) hep null. Kaynak: depo kökündeki local-defaults.json (pakete kopyalanmaz).
+function readLocalDefaults() {
+  try {
+    if (process.env.REMNOTE_BUILD_TARGET === 'marketplace') return null;
+    const manifest = JSON.parse(fs.readFileSync(resolve(__dirname, 'public', 'manifest.json'), 'utf8'));
+    if (!String(manifest.id || '').endsWith('-dev-2')) return null;
+    const file = resolve(__dirname, 'local-defaults.json');
+    if (!fs.existsSync(file)) return null;
+    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const tags = data.eisenhowerTagIds && typeof data.eisenhowerTagIds === 'object' ? data.eisenhowerTagIds : {};
+    const eisenhowerTagIds = {};
+    for (const key of ['critical', 'high', 'medium', 'low']) if (typeof tags[key] === 'string') eisenhowerTagIds[key] = tags[key];
+    return { eisenhowerDocId: String(data.eisenhowerDocId || ''), mydriveFolderId: String(data.mydriveFolderId || ''), eisenhowerTagIds };
+  } catch {
+    return null;
+  }
+}
+const LOCAL_DEFAULTS = readLocalDefaults();
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
 
@@ -80,12 +102,15 @@ const config = {
 
       const s = document.createElement('script');
       s.type = "module";
-      s.src = widgetName+"${SANDBOX_SUFFIX}.js?v=20260312-8080";
+      s.src = widgetName+"${SANDBOX_SUFFIX}.js?v=20260703-compact-actions-25865";
       document.body.appendChild(s);
       </script>
     `,
       filename: 'index.html',
       inject: false,
+    }),
+    new DefinePlugin({
+      __RN_LOCAL_DEFAULTS__: JSON.stringify(LOCAL_DEFAULTS),
     }),
     new ProvidePlugin({
       React: 'react',

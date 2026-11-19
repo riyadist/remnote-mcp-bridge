@@ -87,28 +87,34 @@ export class WebSocketClient {
   }
 
   connect(): void {
+    this.clearReconnectTimeout();
     if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) {
       return;
     }
 
     this.isShuttingDown = false;
     this.setStatus('connecting');
-    this.log(`Connecting to ${this.config.url}...`);
+    // Never log the pairing key carried in the query string.
+    this.log(`Connecting to ${this.config.url.replace(/([?&]key=)[^&]*/i, '$1***')}...`);
 
     try {
-      this.ws = new WebSocket(this.config.url);
+      const socket = new WebSocket(this.config.url);
+      this.ws = socket;
 
-      this.ws.onopen = () => {
+      socket.onopen = () => {
+        if (this.ws !== socket || this.isShuttingDown) return;
         this.log('Connected to MCP server');
         this.reconnectAttempts = 0;
         this.setStatus('connected');
       };
 
-      this.ws.onmessage = async (event) => {
-        await this.handleMessage(event.data);
+      socket.onmessage = async (event) => {
+        if (this.ws !== socket || this.isShuttingDown) return;
+        await this.handleMessage(event.data, socket);
       };
 
-      this.ws.onclose = (event) => {
+      socket.onclose = (event) => {
+        if (this.ws !== socket || this.isShuttingDown) return;
         this.log(`Disconnected: ${event.code} ${event.reason}`, 'warn');
         this.setStatus('disconnected');
 
@@ -117,7 +123,8 @@ export class WebSocketClient {
         }
       };
 
-      this.ws.onerror = (error) => {
+      socket.onerror = (error) => {
+        if (this.ws !== socket || this.isShuttingDown) return;
         this.log(`WebSocket error: ${error}`, 'error');
       };
     } catch (error) {
@@ -127,13 +134,23 @@ export class WebSocketClient {
     }
   }
 
-  private async handleMessage(data: string): Promise<void> {
+  private sendResponse(socket: WebSocket, response: unknown): void {
+    // A completed mutation must never be replayed or answered on a new session.
+    if (this.ws !== socket || this.isShuttingDown || socket.readyState !== WebSocket.OPEN) return;
+    try {
+      socket.send(JSON.stringify(response));
+    } catch (error) {
+      this.log(`Failed to send response: ${error}`, 'error');
+    }
+  }
+
+  private async handleMessage(data: string, socket: WebSocket): Promise<void> {
     try {
       const message = JSON.parse(data) as unknown;
 
       // Handle ping/pong heartbeat
       if (this.isRecord(message) && message.type === 'ping') {
-        this.ws?.send(JSON.stringify({ type: 'pong' }));
+        this.sendResponse(socket, { type: 'pong' });
         return;
       }
 
@@ -142,7 +159,7 @@ export class WebSocketClient {
         return;
       }
 
-      const normalized = this.normalizeIncomingRequest(message);
+      const normalized = this.normalizeIncomingRequest(message, socket);
       if (!normalized) {
         this.log('Ignoring unsupported message format', 'warn');
         return;
@@ -173,7 +190,7 @@ export class WebSocketClient {
     return this.isRecord(value) ? value : {};
   }
 
-  private normalizeIncomingRequest(message: unknown): null | {
+  private normalizeIncomingRequest(message: unknown, socket: WebSocket): null | {
     request: BridgeRequest;
     respond?: (outcome: { ok: true; result: unknown } | { ok: false; error: string }) => void;
   } {
@@ -196,7 +213,7 @@ export class WebSocketClient {
               id: request.id,
               ...(outcome.ok ? { result: outcome.result } : { error: outcome.error })
             };
-            this.ws?.send(JSON.stringify(response));
+            this.sendResponse(socket, response);
           }
         : undefined;
 
@@ -221,7 +238,7 @@ export class WebSocketClient {
                 id: request.id,
                 result: outcome.result
               };
-              this.ws?.send(JSON.stringify(response));
+              this.sendResponse(socket, response);
             } else {
               const response: JsonRpcErrorResponse = {
                 jsonrpc: '2.0',
@@ -231,7 +248,7 @@ export class WebSocketClient {
                   message: outcome.error
                 }
               };
-              this.ws?.send(JSON.stringify(response));
+              this.sendResponse(socket, response);
             }
           }
         : undefined;
@@ -243,7 +260,7 @@ export class WebSocketClient {
   }
 
   private scheduleReconnect(): void {
-    if (this.isShuttingDown) {
+    if (this.isShuttingDown || this.reconnectTimeout !== null) {
       return;
     }
 
@@ -264,6 +281,7 @@ export class WebSocketClient {
     this.log(`Reconnecting in ${Math.round(delay)}ms (attempt ${this.reconnectAttempts}/${this.config.maxReconnectAttempts})`);
 
     this.reconnectTimeout = setTimeout(() => {
+      this.reconnectTimeout = null;
       this.connect();
     }, delay);
   }
@@ -272,17 +290,22 @@ export class WebSocketClient {
     this.messageHandler = handler;
   }
 
-  disconnect(): void {
-    this.isShuttingDown = true;
-
-    if (this.reconnectTimeout) {
+  private clearReconnectTimeout(): void {
+    if (this.reconnectTimeout !== null) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
+  }
+
+  disconnect(): void {
+    this.isShuttingDown = true;
+
+    this.clearReconnectTimeout();
 
     if (this.ws) {
-      this.ws.close(1000, 'Client disconnect');
+      const socket = this.ws;
       this.ws = null;
+      socket.close(1000, 'Client disconnect');
     }
 
     this.setStatus('disconnected');

@@ -1,0 +1,30 @@
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict');
+const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+test('external assets are revalidated after publish without restarting or stale cache',async t=>{
+  const {createStaticServer}=require('./static-server.cjs');
+  assert.equal(typeof createStaticServer,'function');
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'rn-assets-'));
+  const file=path.join(root,'index.js');fs.writeFileSync(file,'old');
+  const server=createStaticServer(root);
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  t.after(async()=>{await new Promise(resolve=>server.close(resolve));fs.rmSync(root,{recursive:true,force:true});});
+  const url='http://127.0.0.1:'+server.address().port+'/index.js';
+  assert.equal(await (await fetch(url)).text(),'old');
+  fs.writeFileSync(file,'new bundle');
+  assert.equal(await (await fetch(url)).text(),'new bundle');
+  fs.unlinkSync(file);
+  assert.equal((await fetch(url)).status,404);
+  fs.writeFileSync(file,'restored');
+  assert.equal(await (await fetch(url)).text(),'restored');
+});
+test('static server only serves its root and rejects malformed traversal',async t=>{
+  const {createStaticServer}=require('./static-server.cjs');
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'rn-assets-'));
+  const server=createStaticServer(root);await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  t.after(async()=>{await new Promise(resolve=>server.close(resolve));fs.rmSync(root,{recursive:true,force:true});});
+  const base='http://127.0.0.1:'+server.address().port;
+  assert.equal((await fetch(base+'/%2e%2e%2fprivate.txt')).status,403);
+  assert.equal((await fetch(base+'/%ZZ')).status,400);
+  assert.equal((await fetch(base+'/index.js',{method:'POST'})).status,405);
+});

@@ -47,7 +47,26 @@ function Test-BridgeHealth {
 $manifestReady = Test-PluginManifest -Url $manifestUrl
 $bridgeReady = Test-BridgeHealth -Url $bridgeHealthUrl
 
+function Test-CdpPort {
+    try {
+        $connections = @(Get-NetTCPConnection -LocalAddress 127.0.0.1 -LocalPort 9233 -State Listen -ErrorAction SilentlyContinue)
+        return $connections.Count -gt 0
+    } catch {
+        return $false
+    }
+}
+
+function Start-CdpToolbarInjectorIfReady {
+    if (Test-CdpPort) {
+        try {
+            & "$root\start_remnote_cdp_toolbar_injector.ps1" -CdpPort 9233 -BridgeUrl "http://127.0.0.1:$BridgeHttpPort" | Out-Null
+        } catch {
+        }
+    }
+}
+
 if ($manifestReady -and $bridgeReady) {
+    Start-CdpToolbarInjectorIfReady
     [pscustomobject]@{
         ok = $true
         started = $false
@@ -80,6 +99,8 @@ for ($i = 0; $i -lt $WaitSeconds; $i++) {
 if (-not $ready) {
     throw "Local RemNote plugin server acildi ama manifest hazir degil: $manifestUrl"
 }
+
+Start-CdpToolbarInjectorIfReady
 
 $startPid = $null
 if ($startResult -and $startResult.PSObject.Properties['pid'] -and $startResult.pid) {

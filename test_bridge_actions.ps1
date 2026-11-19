@@ -1,5 +1,6 @@
 param(
-    [string]$HostBaseUrl = 'http://127.0.0.1:3400'
+    [string]$HostBaseUrl = 'http://127.0.0.1:3400',
+    [string]$ExpectedPluginVersion = (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'package.json') -Raw | ConvertFrom-Json).version
 )
 
 $ErrorActionPreference = 'Stop'
@@ -98,6 +99,7 @@ $result = [ordered]@{
     note = $null
     search = $null
     read = $null
+    clone_rem_subtree = $null
     inspect_rem_object_state = $null
     inspect_rem_graph_context = $null
     control_rem_object_state_status = $null
@@ -274,13 +276,13 @@ try {
 
     $result.status = Invoke-BridgeAction -Action 'get_status'
     Assert-True ($result.status.connected -eq [bool]$result.health.pluginConnected) "get_status connected mismatch. status=$($result.status.connected) health=$($result.health.pluginConnected)"
-    Assert-True ($result.status.pluginVersion -eq '2.58.0') "Unexpected plugin version: $($result.status.pluginVersion)"
+    Assert-True ($result.status.pluginVersion -eq $ExpectedPluginVersion) "Unexpected plugin version: $($result.status.pluginVersion)"
     Assert-True ($null -ne $result.health.runtime.lastUpdate) 'Health runtime.lastUpdate is missing.'
     Assert-True ($result.health.runtime.lastUpdate.expectedVersion -eq $result.status.pluginVersion) "Health expectedVersion mismatch: $($result.health.runtime.lastUpdate.expectedVersion)"
     Assert-True ($result.health.runtime.lastUpdate.activeVersion -eq $result.status.pluginVersion) "Health activeVersion mismatch: $($result.health.runtime.lastUpdate.activeVersion)"
 
     $result.capability_inspector = Invoke-BridgeAction -Action 'capability_inspector'
-    Assert-True ($result.capability_inspector.pluginVersion -eq '2.58.0') 'capability_inspector pluginVersion mismatch.'
+    Assert-True ($result.capability_inspector.pluginVersion -eq $ExpectedPluginVersion) 'capability_inspector pluginVersion mismatch.'
     Assert-True (@($result.capability_inspector.actions | Where-Object { $_ -eq 'sdk_namespace_call' }).Count -eq 1) 'capability_inspector missing sdk_namespace_call action.'
     Assert-True (@($result.capability_inspector.actions | Where-Object { $_ -eq 'inspect_app_context' }).Count -eq 1) 'capability_inspector missing inspect_app_context action.'
     Assert-True (@($result.capability_inspector.actions | Where-Object { $_ -eq 'inspect_editor_context' }).Count -eq 1) 'capability_inspector missing inspect_editor_context action.'
@@ -337,6 +339,7 @@ try {
     Assert-True (@($result.capability_inspector.actions | Where-Object { $_ -eq 'control_rem_object_state' }).Count -eq 1) 'capability_inspector missing control_rem_object_state action.'
     Assert-True (@($result.capability_inspector.actions | Where-Object { $_ -eq 'inspect_rem_graph_context' }).Count -eq 1) 'capability_inspector missing inspect_rem_graph_context action.'
     Assert-True (@($result.capability_inspector.actions | Where-Object { $_ -eq 'control_rem_structure' }).Count -eq 1) 'capability_inspector missing control_rem_structure action.'
+    Assert-True (@($result.capability_inspector.actions | Where-Object { $_ -eq 'clone_rem_subtree' }).Count -eq 1) 'capability_inspector missing clone_rem_subtree action.'
     Assert-True (@($result.capability_inspector.sdkNamespaceReadAllowlist.powerup | Where-Object { $_ -eq 'getPowerupByCode' }).Count -eq 1) 'capability_inspector namespace allowlist missing powerup.getPowerupByCode.'
     Assert-True (@($result.capability_inspector.sdkNamespaceReadAllowlist.powerup | Where-Object { $_ -eq 'getPowerupSlotByCode' }).Count -eq 1) 'capability_inspector namespace allowlist missing powerup.getPowerupSlotByCode.'
     Assert-True (@($result.capability_inspector.actions | Where-Object { $_ -eq 'export_learning_inbox' }).Count -eq 1) 'capability_inspector missing export_learning_inbox action.'
@@ -374,7 +377,7 @@ try {
     $result.inspect_app_context = Invoke-BridgeAction -Action 'inspect_app_context'
     Assert-True ($result.inspect_app_context.readOnly -eq $true) 'inspect_app_context must be read-only.'
     Assert-True ($result.inspect_app_context.mutationApplied -eq $false) 'inspect_app_context must not mutate RemNote.'
-    Assert-True ($result.inspect_app_context.pluginVersion -eq '2.58.0') 'inspect_app_context pluginVersion mismatch.'
+    Assert-True ($result.inspect_app_context.pluginVersion -eq $ExpectedPluginVersion) 'inspect_app_context pluginVersion mismatch.'
     Assert-True ($result.inspect_app_context.fields.platform.ok -eq $true) 'inspect_app_context platform failed.'
 
     $result.control_app_status = Invoke-BridgeAction -Action 'control_app' -Payload @{
@@ -383,7 +386,7 @@ try {
     Assert-True ($result.control_app_status.success -eq $true) 'control_app status failed.'
     Assert-True ($result.control_app_status.readOnly -eq $true) 'control_app status must be read-only.'
     Assert-True ($result.control_app_status.mutationApplied -eq $false) 'control_app status must not mutate RemNote.'
-    Assert-True ($result.control_app_status.pluginVersion -eq '2.58.0') 'control_app status pluginVersion mismatch.'
+    Assert-True ($result.control_app_status.pluginVersion -eq $ExpectedPluginVersion) 'control_app status pluginVersion mismatch.'
 
     $result.control_app_dry_run = Invoke-BridgeAction -Action 'control_app' -Payload @{
         operation = 'registerCSS'
@@ -403,7 +406,7 @@ try {
     Assert-True ($result.control_app_unconfirmed.requiresConfirmation -eq $true) 'control_app unconfirmed should require confirmation.'
     Assert-True ($result.control_app_unconfirmed.mutationApplied -eq $false) 'control_app unconfirmed must not mutate RemNote.'
     Assert-True ($result.control_app_unconfirmed.confirmationText -eq 'CONTROL_APP') 'control_app confirmation text mismatch.'
-    Assert-True ($result.control_app_unconfirmed.pluginVersion -eq '2.58.0') 'control_app unconfirmed pluginVersion mismatch.'
+    Assert-True ($result.control_app_unconfirmed.pluginVersion -eq $ExpectedPluginVersion) 'control_app unconfirmed pluginVersion mismatch.'
 
     $result.control_window_status = Invoke-BridgeAction -Action 'control_window' -Payload @{
         operation = 'status'
@@ -411,7 +414,7 @@ try {
     Assert-True ($result.control_window_status.success -eq $true) 'control_window status failed.'
     Assert-True ($result.control_window_status.readOnly -eq $true) 'control_window status must be read-only.'
     Assert-True ($result.control_window_status.mutationApplied -eq $false) 'control_window status must not mutate RemNote.'
-    Assert-True ($result.control_window_status.pluginVersion -eq '2.58.0') 'control_window status pluginVersion mismatch.'
+    Assert-True ($result.control_window_status.pluginVersion -eq $ExpectedPluginVersion) 'control_window status pluginVersion mismatch.'
     Assert-True ($null -ne $result.control_window_status.before.fields.openPaneIds) 'control_window status missing openPaneIds.'
 
     $result.control_window_dry_run = Invoke-BridgeAction -Action 'control_window' -Payload @{
@@ -431,7 +434,7 @@ try {
     Assert-True ($result.control_window_unconfirmed.requiresConfirmation -eq $true) 'control_window unconfirmed should require confirmation.'
     Assert-True ($result.control_window_unconfirmed.mutationApplied -eq $false) 'control_window unconfirmed must not mutate RemNote.'
     Assert-True ($result.control_window_unconfirmed.confirmationText -eq 'CONTROL_WINDOW') 'control_window confirmation text mismatch.'
-    Assert-True ($result.control_window_unconfirmed.pluginVersion -eq '2.58.0') 'control_window unconfirmed pluginVersion mismatch.'
+    Assert-True ($result.control_window_unconfirmed.pluginVersion -eq $ExpectedPluginVersion) 'control_window unconfirmed pluginVersion mismatch.'
 
     $result.control_plugin_runtime_status = Invoke-BridgeAction -Action 'control_plugin_runtime' -Payload @{
         operation = 'status'
@@ -439,7 +442,7 @@ try {
     Assert-True ($result.control_plugin_runtime_status.success -eq $true) 'control_plugin_runtime status failed.'
     Assert-True ($result.control_plugin_runtime_status.readOnly -eq $true) 'control_plugin_runtime status must be read-only.'
     Assert-True ($result.control_plugin_runtime_status.mutationApplied -eq $false) 'control_plugin_runtime status must not mutate RemNote.'
-    Assert-True ($result.control_plugin_runtime_status.pluginVersion -eq '2.58.0') 'control_plugin_runtime status pluginVersion mismatch.'
+    Assert-True ($result.control_plugin_runtime_status.pluginVersion -eq $ExpectedPluginVersion) 'control_plugin_runtime status pluginVersion mismatch.'
 
     $result.control_plugin_runtime_storage_get = Invoke-BridgeAction -Action 'control_plugin_runtime' -Payload @{
         operation = 'storageGet'
@@ -469,7 +472,7 @@ try {
     Assert-True ($result.control_plugin_runtime_unconfirmed.requiresConfirmation -eq $true) 'control_plugin_runtime unconfirmed should require confirmation.'
     Assert-True ($result.control_plugin_runtime_unconfirmed.mutationApplied -eq $false) 'control_plugin_runtime unconfirmed must not mutate RemNote.'
     Assert-True ($result.control_plugin_runtime_unconfirmed.confirmationText -eq 'CONTROL_PLUGIN_RUNTIME') 'control_plugin_runtime confirmation text mismatch.'
-    Assert-True ($result.control_plugin_runtime_unconfirmed.pluginVersion -eq '2.58.0') 'control_plugin_runtime unconfirmed pluginVersion mismatch.'
+    Assert-True ($result.control_plugin_runtime_unconfirmed.pluginVersion -eq $ExpectedPluginVersion) 'control_plugin_runtime unconfirmed pluginVersion mismatch.'
 
     $result.inspect_powerup_registry = Invoke-BridgeAction -Action 'inspect_powerup_registry' -Payload @{
         powerupCodes = @('o', 'r', 't')
@@ -483,7 +486,7 @@ try {
     }
     Assert-True ($result.inspect_powerup_registry.readOnly -eq $true) 'inspect_powerup_registry must be read-only.'
     Assert-True ($result.inspect_powerup_registry.mutationApplied -eq $false) 'inspect_powerup_registry must not mutate RemNote.'
-    Assert-True ($result.inspect_powerup_registry.pluginVersion -eq '2.58.0') 'inspect_powerup_registry pluginVersion mismatch.'
+    Assert-True ($result.inspect_powerup_registry.pluginVersion -eq $ExpectedPluginVersion) 'inspect_powerup_registry pluginVersion mismatch.'
     Assert-True ($result.inspect_powerup_registry.powerupCount -eq 3) 'inspect_powerup_registry powerup count mismatch.'
     Assert-True ($result.inspect_powerup_registry.slotProbeCount -eq 3) 'inspect_powerup_registry slot count mismatch.'
     Assert-True ($result.inspect_powerup_registry.powerups.o.ok -eq $true) 'inspect_powerup_registry failed to read Document powerup.'
@@ -494,7 +497,7 @@ try {
     Assert-True ($result.control_events_status.success -eq $true) 'control_events status failed.'
     Assert-True ($result.control_events_status.readOnly -eq $true) 'control_events status must be read-only.'
     Assert-True ($result.control_events_status.mutationApplied -eq $false) 'control_events status must not mutate RemNote.'
-    Assert-True ($result.control_events_status.pluginVersion -eq '2.58.0') 'control_events status pluginVersion mismatch.'
+    Assert-True ($result.control_events_status.pluginVersion -eq $ExpectedPluginVersion) 'control_events status pluginVersion mismatch.'
 
     $result.control_events_dry_run = Invoke-BridgeAction -Action 'control_events' -Payload @{
         operation = 'addListener'
@@ -515,7 +518,7 @@ try {
     Assert-True ($result.control_events_unconfirmed.requiresConfirmation -eq $true) 'control_events unconfirmed should require confirmation.'
     Assert-True ($result.control_events_unconfirmed.mutationApplied -eq $false) 'control_events unconfirmed must not mutate RemNote.'
     Assert-True ($result.control_events_unconfirmed.confirmationText -eq 'CONTROL_EVENTS') 'control_events confirmation text mismatch.'
-    Assert-True ($result.control_events_unconfirmed.pluginVersion -eq '2.58.0') 'control_events unconfirmed pluginVersion mismatch.'
+    Assert-True ($result.control_events_unconfirmed.pluginVersion -eq $ExpectedPluginVersion) 'control_events unconfirmed pluginVersion mismatch.'
 
     $eventListenerKey = "ag-smoke-$suffix"
     $result.control_events_add = Invoke-BridgeAction -Action 'control_events' -Payload @{
@@ -544,7 +547,7 @@ try {
     Assert-True ($result.control_reader_status.success -eq $true) 'control_reader status failed.'
     Assert-True ($result.control_reader_status.readOnly -eq $true) 'control_reader status must be read-only.'
     Assert-True ($result.control_reader_status.mutationApplied -eq $false) 'control_reader status must not mutate RemNote.'
-    Assert-True ($result.control_reader_status.pluginVersion -eq '2.58.0') 'control_reader status pluginVersion mismatch.'
+    Assert-True ($result.control_reader_status.pluginVersion -eq $ExpectedPluginVersion) 'control_reader status pluginVersion mismatch.'
 
     $result.control_reader_dry_run = Invoke-BridgeAction -Action 'control_reader' -Payload @{
         operation = 'addHighlight'
@@ -586,7 +589,7 @@ try {
     Assert-True ($result.control_scheduler_status.success -eq $true) 'control_scheduler status failed.'
     Assert-True ($result.control_scheduler_status.readOnly -eq $true) 'control_scheduler status must be read-only.'
     Assert-True ($result.control_scheduler_status.mutationApplied -eq $false) 'control_scheduler status must not mutate RemNote.'
-    Assert-True ($result.control_scheduler_status.pluginVersion -eq '2.58.0') 'control_scheduler status pluginVersion mismatch.'
+    Assert-True ($result.control_scheduler_status.pluginVersion -eq $ExpectedPluginVersion) 'control_scheduler status pluginVersion mismatch.'
 
     $result.control_scheduler_dry_run = Invoke-BridgeAction -Action 'control_scheduler' -Payload @{
         operation = 'registerCustomScheduler'
@@ -612,7 +615,7 @@ try {
     $result.inspect_editor_context = Invoke-BridgeAction -Action 'inspect_editor_context'
     Assert-True ($result.inspect_editor_context.readOnly -eq $true) 'inspect_editor_context must be read-only.'
     Assert-True ($result.inspect_editor_context.mutationApplied -eq $false) 'inspect_editor_context must not mutate RemNote.'
-    Assert-True ($result.inspect_editor_context.pluginVersion -eq '2.58.0') 'inspect_editor_context pluginVersion mismatch.'
+    Assert-True ($result.inspect_editor_context.pluginVersion -eq $ExpectedPluginVersion) 'inspect_editor_context pluginVersion mismatch.'
     Assert-True ($null -ne $result.inspect_editor_context.fields.selection) 'inspect_editor_context missing selection field.'
 
     $result.control_editor_status = Invoke-BridgeAction -Action 'control_editor' -Payload @{
@@ -621,7 +624,7 @@ try {
     Assert-True ($result.control_editor_status.success -eq $true) 'control_editor status failed.'
     Assert-True ($result.control_editor_status.readOnly -eq $true) 'control_editor status must be read-only.'
     Assert-True ($result.control_editor_status.mutationApplied -eq $false) 'control_editor status must not mutate RemNote.'
-    Assert-True ($result.control_editor_status.pluginVersion -eq '2.58.0') 'control_editor status pluginVersion mismatch.'
+    Assert-True ($result.control_editor_status.pluginVersion -eq $ExpectedPluginVersion) 'control_editor status pluginVersion mismatch.'
 
     $result.control_editor_dry_run = Invoke-BridgeAction -Action 'control_editor' -Payload @{
         operation = 'insertPlainText'
@@ -640,14 +643,14 @@ try {
     Assert-True ($result.control_editor_unconfirmed.requiresConfirmation -eq $true) 'control_editor unconfirmed should require confirmation.'
     Assert-True ($result.control_editor_unconfirmed.mutationApplied -eq $false) 'control_editor unconfirmed must not mutate RemNote.'
     Assert-True ($result.control_editor_unconfirmed.confirmationText -eq 'CONTROL_EDITOR') 'control_editor confirmation text mismatch.'
-    Assert-True ($result.control_editor_unconfirmed.pluginVersion -eq '2.58.0') 'control_editor unconfirmed pluginVersion mismatch.'
+    Assert-True ($result.control_editor_unconfirmed.pluginVersion -eq $ExpectedPluginVersion) 'control_editor unconfirmed pluginVersion mismatch.'
 
     $result.inspect_queue_context = Invoke-BridgeAction -Action 'inspect_queue_context' -Payload @{
         includeCurrentCard = $true
     }
     Assert-True ($result.inspect_queue_context.readOnly -eq $true) 'inspect_queue_context must be read-only.'
     Assert-True ($result.inspect_queue_context.mutationApplied -eq $false) 'inspect_queue_context must not mutate RemNote.'
-    Assert-True ($result.inspect_queue_context.pluginVersion -eq '2.58.0') 'inspect_queue_context pluginVersion mismatch.'
+    Assert-True ($result.inspect_queue_context.pluginVersion -eq $ExpectedPluginVersion) 'inspect_queue_context pluginVersion mismatch.'
     Assert-True ($null -ne $result.inspect_queue_context.fields.currentQueueScreenType) 'inspect_queue_context missing currentQueueScreenType field.'
 
     $result.control_practice_queue_status = Invoke-BridgeAction -Action 'control_practice_queue' -Payload @{
@@ -657,7 +660,7 @@ try {
     Assert-True ($result.control_practice_queue_status.success -eq $true) 'control_practice_queue status failed.'
     Assert-True ($result.control_practice_queue_status.readOnly -eq $true) 'control_practice_queue status must be read-only.'
     Assert-True ($result.control_practice_queue_status.mutationApplied -eq $false) 'control_practice_queue status must not mutate RemNote.'
-    Assert-True ($result.control_practice_queue_status.pluginVersion -eq '2.58.0') 'control_practice_queue status pluginVersion mismatch.'
+    Assert-True ($result.control_practice_queue_status.pluginVersion -eq $ExpectedPluginVersion) 'control_practice_queue status pluginVersion mismatch.'
 
     $result.control_practice_queue_unconfirmed = Invoke-BridgeAction -Action 'control_practice_queue' -Payload @{
         operation = 'showAnswer'
@@ -665,14 +668,14 @@ try {
     Assert-True ($result.control_practice_queue_unconfirmed.requiresConfirmation -eq $true) 'control_practice_queue unconfirmed should require confirmation.'
     Assert-True ($result.control_practice_queue_unconfirmed.mutationApplied -eq $false) 'control_practice_queue unconfirmed must not mutate RemNote.'
     Assert-True ($result.control_practice_queue_unconfirmed.confirmationText -eq 'CONTROL_PRACTICE_QUEUE') 'control_practice_queue confirmation text mismatch.'
-    Assert-True ($result.control_practice_queue_unconfirmed.pluginVersion -eq '2.58.0') 'control_practice_queue unconfirmed pluginVersion mismatch.'
+    Assert-True ($result.control_practice_queue_unconfirmed.pluginVersion -eq $ExpectedPluginVersion) 'control_practice_queue unconfirmed pluginVersion mismatch.'
 
     $result.inspect_plugin_runtime = Invoke-BridgeAction -Action 'inspect_plugin_runtime' -Payload @{
         valueDepth = 4
     }
     Assert-True ($result.inspect_plugin_runtime.readOnly -eq $true) 'inspect_plugin_runtime must be read-only.'
     Assert-True ($result.inspect_plugin_runtime.mutationApplied -eq $false) 'inspect_plugin_runtime must not mutate RemNote.'
-    Assert-True ($result.inspect_plugin_runtime.pluginVersion -eq '2.58.0') 'inspect_plugin_runtime pluginVersion mismatch.'
+    Assert-True ($result.inspect_plugin_runtime.pluginVersion -eq $ExpectedPluginVersion) 'inspect_plugin_runtime pluginVersion mismatch.'
     Assert-True ($null -ne $result.inspect_plugin_runtime.fields.currentSettings) 'inspect_plugin_runtime missing currentSettings.'
     Assert-True ($null -ne $result.inspect_plugin_runtime.fields.settings.'mcp-ws-url') 'inspect_plugin_runtime missing mcp-ws-url setting.'
     Assert-True ($null -ne $result.inspect_plugin_runtime.fields.storage.'mcp-runtime-status') 'inspect_plugin_runtime missing runtime storage.'
@@ -681,7 +684,7 @@ try {
     $result.inspect_focus_context = Invoke-BridgeAction -Action 'inspect_focus_context'
     Assert-True ($result.inspect_focus_context.readOnly -eq $true) 'inspect_focus_context must be read-only.'
     Assert-True ($result.inspect_focus_context.mutationApplied -eq $false) 'inspect_focus_context must not mutate RemNote.'
-    Assert-True ($result.inspect_focus_context.pluginVersion -eq '2.58.0') 'inspect_focus_context pluginVersion mismatch.'
+    Assert-True ($result.inspect_focus_context.pluginVersion -eq $ExpectedPluginVersion) 'inspect_focus_context pluginVersion mismatch.'
     Assert-True ($null -ne $result.inspect_focus_context.fields.focusedRem) 'inspect_focus_context missing focusedRem field.'
 
     $result.sdk_namespace_call_storage = Invoke-BridgeAction -Action 'sdk_namespace_call' -Payload @{
@@ -723,7 +726,7 @@ try {
     }
     Assert-True ($result.rich_text_parse_markdown.readOnly -eq $true) 'rich_text_parse_markdown must be read-only.'
     Assert-True ($result.rich_text_parse_markdown.mutationApplied -eq $false) 'rich_text_parse_markdown must not mutate RemNote.'
-    Assert-True ($result.rich_text_parse_markdown.pluginVersion -eq '2.58.0') 'rich_text_parse_markdown pluginVersion mismatch.'
+    Assert-True ($result.rich_text_parse_markdown.pluginVersion -eq $ExpectedPluginVersion) 'rich_text_parse_markdown pluginVersion mismatch.'
     Assert-True ($result.rich_text_parse_markdown.length.ok -eq $true) 'rich_text_parse_markdown length failed.'
     Assert-True ($result.rich_text_parse_markdown.plainText.ok -eq $true) 'rich_text_parse_markdown plainText failed.'
 
@@ -737,7 +740,7 @@ try {
     }
     Assert-True ($result.rich_text_format_range.readOnly -eq $true) 'rich_text_format_range must be read-only.'
     Assert-True ($result.rich_text_format_range.mutationApplied -eq $false) 'rich_text_format_range must not mutate RemNote.'
-    Assert-True ($result.rich_text_format_range.pluginVersion -eq '2.58.0') 'rich_text_format_range pluginVersion mismatch.'
+    Assert-True ($result.rich_text_format_range.pluginVersion -eq $ExpectedPluginVersion) 'rich_text_format_range pluginVersion mismatch.'
     Assert-True ($result.rich_text_format_range.operation.format -eq 'bold') 'rich_text_format_range operation format mismatch.'
     Assert-True ($result.rich_text_format_range.plainText.ok -eq $true) 'rich_text_format_range plainText failed.'
 
@@ -751,7 +754,7 @@ try {
     }
     Assert-True ($result.rich_text_inspect.readOnly -eq $true) 'rich_text_inspect must be read-only.'
     Assert-True ($result.rich_text_inspect.mutationApplied -eq $false) 'rich_text_inspect must not mutate RemNote.'
-    Assert-True ($result.rich_text_inspect.pluginVersion -eq '2.58.0') 'rich_text_inspect pluginVersion mismatch.'
+    Assert-True ($result.rich_text_inspect.pluginVersion -eq $ExpectedPluginVersion) 'rich_text_inspect pluginVersion mismatch.'
     Assert-True ($result.rich_text_inspect.length.ok -eq $true) 'rich_text_inspect length failed.'
     Assert-True ($result.rich_text_inspect.fields.indexOf.ok -eq $true) 'rich_text_inspect indexOf failed.'
 
@@ -760,7 +763,7 @@ try {
     }
     Assert-True ($result.host_remnote_sdk_surface_gap_report.readOnly -eq $true) 'host_remnote_sdk_surface_gap_report must be read-only.'
     Assert-True ($result.host_remnote_sdk_surface_gap_report.mutationApplied -eq $false) 'host_remnote_sdk_surface_gap_report must not mutate RemNote.'
-    Assert-True ($result.host_remnote_sdk_surface_gap_report.pluginVersion -eq '2.58.0') 'host_remnote_sdk_surface_gap_report pluginVersion mismatch.'
+    Assert-True ($result.host_remnote_sdk_surface_gap_report.pluginVersion -eq $ExpectedPluginVersion) 'host_remnote_sdk_surface_gap_report pluginVersion mismatch.'
     Assert-True ($result.host_remnote_sdk_surface_gap_report.sdkPackage.version -eq '0.0.46') 'host_remnote_sdk_surface_gap_report SDK version mismatch.'
     Assert-True ($result.host_remnote_sdk_surface_gap_report.summary.sdkMethodCount -gt 0) 'host_remnote_sdk_surface_gap_report found no SDK methods.'
     Assert-True ($result.host_remnote_sdk_surface_gap_report.summary.allowlistMissingFromSdkCount -eq 0) 'host_remnote_sdk_surface_gap_report found allowlisted methods missing from SDK.'
@@ -827,6 +830,15 @@ try {
     Assert-True ($result.read.title -like "*create-note-$suffix*") 'Read note title mismatch.'
     Assert-True ($result.read.createdAt -is [long] -or $result.read.createdAt -is [int] -or $result.read.createdAt -is [double]) 'Read note createdAt metadata is missing.'
 
+    $result.clone_rem_subtree = Invoke-BridgeAction -Action 'clone_rem_subtree' -Payload @{
+        sourceRemId = $result.note.remId
+        targetParentId = $result.path.remId
+        includeRoot = $true
+        positionAmongstSiblings = 0
+    }
+    Assert-True ($result.clone_rem_subtree.success -eq $true) 'clone_rem_subtree failed.'
+    Assert-True ($result.clone_rem_subtree.clonedRoot.remId) 'clone_rem_subtree did not return cloned root.'
+
     $result.inspect_rem_object_state = Invoke-BridgeAction -Action 'inspect_rem_object_state' -Payload @{
         remId = $result.note.remId
         includePowerups = $true
@@ -885,7 +897,7 @@ try {
     }
     Assert-True ($result.inspect_rem_graph_context.readOnly -eq $true) 'inspect_rem_graph_context must be read-only.'
     Assert-True ($result.inspect_rem_graph_context.mutationApplied -eq $false) 'inspect_rem_graph_context must not mutate RemNote.'
-    Assert-True ($result.inspect_rem_graph_context.pluginVersion -eq '2.58.0') 'inspect_rem_graph_context pluginVersion mismatch.'
+    Assert-True ($result.inspect_rem_graph_context.pluginVersion -eq $ExpectedPluginVersion) 'inspect_rem_graph_context pluginVersion mismatch.'
     Assert-True ($null -ne $result.inspect_rem_graph_context.fields.location.children) 'inspect_rem_graph_context missing children context.'
     Assert-True ($null -ne $result.inspect_rem_graph_context.fields.siblings.siblingRem) 'inspect_rem_graph_context missing siblingRem context.'
     Assert-True ($null -ne $result.inspect_rem_graph_context.fields.tagContext.ancestorTagRem) 'inspect_rem_graph_context missing ancestor tag context.'
@@ -898,7 +910,7 @@ try {
     Assert-True ($result.control_rem_structure_status.success -eq $true) 'control_rem_structure status failed.'
     Assert-True ($result.control_rem_structure_status.readOnly -eq $true) 'control_rem_structure status must be read-only.'
     Assert-True ($result.control_rem_structure_status.mutationApplied -eq $false) 'control_rem_structure status must not mutate RemNote.'
-    Assert-True ($result.control_rem_structure_status.pluginVersion -eq '2.58.0') 'control_rem_structure status pluginVersion mismatch.'
+    Assert-True ($result.control_rem_structure_status.pluginVersion -eq $ExpectedPluginVersion) 'control_rem_structure status pluginVersion mismatch.'
 
     $result.control_rem_structure_dry_run = Invoke-BridgeAction -Action 'control_rem_structure' -Payload @{
         remId = $result.note.remId
@@ -1692,7 +1704,7 @@ try {
     }
     Assert-True ($result.export_card_catalog.readOnly -eq $true) 'export_card_catalog must be read-only.'
     Assert-True ($result.export_card_catalog.mutationApplied -eq $false) 'export_card_catalog must not mutate RemNote.'
-    Assert-True ($result.export_card_catalog.pluginVersion -eq '2.58.0') 'export_card_catalog pluginVersion mismatch.'
+    Assert-True ($result.export_card_catalog.pluginVersion -eq $ExpectedPluginVersion) 'export_card_catalog pluginVersion mismatch.'
     Assert-True ($null -ne $result.export_card_catalog.rows) 'export_card_catalog missing rows.'
 
     $result.read_card_full = Invoke-BridgeAction -Action 'read_card_full' -Payload @{
@@ -1701,7 +1713,7 @@ try {
     }
     Assert-True ($result.read_card_full.readOnly -eq $true) 'read_card_full must be read-only.'
     Assert-True ($result.read_card_full.mutationApplied -eq $false) 'read_card_full must not mutate RemNote.'
-    Assert-True ($result.read_card_full.pluginVersion -eq '2.58.0') 'read_card_full pluginVersion mismatch.'
+    Assert-True ($result.read_card_full.pluginVersion -eq $ExpectedPluginVersion) 'read_card_full pluginVersion mismatch.'
     Assert-True ($null -ne $result.read_card_full.rows) 'read_card_full missing rows.'
 
     $cardIdForControl = if (@($result.read_card_full.rows).Count -gt 0) { [string]$result.read_card_full.rows[0].cardId } else { "missing-card-$suffix" }
@@ -1711,7 +1723,7 @@ try {
     }
     Assert-True ($result.control_card_status.readOnly -eq $true) 'control_card status must be read-only.'
     Assert-True ($result.control_card_status.mutationApplied -eq $false) 'control_card status must not mutate RemNote.'
-    Assert-True ($result.control_card_status.pluginVersion -eq '2.58.0') 'control_card status pluginVersion mismatch.'
+    Assert-True ($result.control_card_status.pluginVersion -eq $ExpectedPluginVersion) 'control_card status pluginVersion mismatch.'
 
     $result.control_card_dry_run = Invoke-BridgeAction -Action 'control_card' -Payload @{
         operation = 'remove'

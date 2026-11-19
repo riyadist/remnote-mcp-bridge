@@ -1,6 +1,54 @@
 # RemNote MCP Bridge (Y Edition)
 
-Current release target: **v2.59.41** (source target; verify `get_status` for the loaded version).
+Current release: **v2.61.0** — marketplace listing `remnote-mcp-bridge-y-edition-dev` (verify `get_status` for the loaded version).
+
+## What's New in 2.61.0
+
+This release turns the bridge into **one plugin with optional sections**. Plugins that used to be installed separately are now built in, and each one has its own on/off switch in the plugin settings.
+
+**Existing users: nothing changes unless you turn something on.** Only the MCP Bridge is enabled by default, exactly as before.
+
+### Sections
+
+| Section | What it does | Default | Phone / tablet |
+|---|---|---|---|
+| MCP Bridge | Connects RemNote to AI assistants (Claude, GPT, other MCP clients) through a local bridge | On | Not started (needs the computer) |
+| Translation & AI Assistant | Translate a selection, explain it, ask follow-up questions, save vocabulary cards | Off | Not started (needs the computer) |
+| Learn | Memrise-style lessons for vocabulary documents: introduce a word, then quiz it (meaning, fill-in-the-blank, spell it with letter tiles). Results are saved to RemNote's own flashcard history only when you press Save | Off | Works (image and story suggestions are desktop only) |
+| Eisenhower board | Critical / High / Medium / Low task board. Pick the board document with the command "Eisenhower: use this document as the board"; tags are found by name | Off | Works |
+| PDF Reading View | Dark / sepia reading view for PDFs | Off | Works |
+| No Bullet editor mode | Hides bullets for a cleaner editor | Off | Works |
+| Todo Alarm | Reminders for todos | Off | Not started (needs a local service) |
+| MyDrive | Attach Google Drive files to notes | Off | Not started (needs a local server) |
+
+Turn a section on in **Settings → Plugins → MCP Bridge (Y Edition Dev) → Settings**. If a change does not apply right away, reload the plugin.
+
+### Other changes
+
+- **Plugin icon.** The plugin now ships `logo.png`, so RemNote shows the bridge icon instead of a letter.
+- **Mobile-safe startup.** On phones and tablets the local bridge, local HTTP/WebSocket calls and desktop automation never start, so there are no connection errors. The manifest now allows mobile loading (`enableOnMobile: true`).
+- **Learn: memory help.** On desktop, a word's intro screen can suggest free-licensed images (Wikimedia Commons, with source and license) and short sound-alike memory stories. Nothing is written to your note unless you press "Add to card", and adding never changes or deletes existing content.
+- **Learn: smoother card images.** Card images are drawn inside the lesson window, so they no longer lag behind while scrolling.
+- **Privacy.** No personal document, tag or folder IDs are built into the published package. Personal defaults live in an untracked local file used only for local development builds.
+- **Core bridge fixes (since 2.59.x).** Rem references passed to ID-only parameters are converted to plain IDs (this fixed tag operations that could hang), and every bridge call now has a time limit with automatic queue recovery.
+
+### Known limitations
+
+- Todo Alarm needs an update to its local alarm service before it works from the combined plugin.
+- MyDrive keeps its Google settings per plugin, so you need to enter them once again in the combined plugin.
+- The phone behaviour is covered by automated tests but has not yet been tried on a real Android device.
+
+### Validation
+
+- Type check: `npx tsc --noEmit` — 0 errors.
+- Targeted tests: `test_features.cjs` 13/13, `test_ogren.cjs` 26/26, `test_eisenhower_board.cjs` 19/19, `test_version_consistency.cjs` 2/2.
+- Production builds (local and marketplace) succeed; the marketplace manifest passes `remnote-plugin validate`.
+
+### Plugin IDs
+
+- Marketplace listing: `remnote-mcp-bridge-y-edition-dev` (this release: 2.61.0, previous: 1.6.1).
+- Local development: `remnote-mcp-bridge-y-edition-dev-2`.
+
 
 ## 2.59.41 safety and lifecycle contract
 
@@ -151,33 +199,39 @@ exporting, and safely migrating a RemNote knowledge base.
 
 ## Public Status
 
-The RemNote marketplace listing may still show the older **v1.1.4** text until
-the marketplace package is republished. The local development source in this
-branch is currently the **v2.59.41** line.
+- Marketplace listing: `remnote-mcp-bridge-y-edition-dev` (approved). The live
+  marketplace version is **1.6.1** until the **2.61.0** package is uploaded.
+- `remnote-mcp-bridge-y-edition` is a different, rejected listing owned by
+  another account. Do not use that ID.
 
 Important IDs:
 
-- Marketplace plugin ID: `remnote-mcp-bridge-y-edition-dev` (the approved listing owned by this fork; `remnote-mcp-bridge-y-edition` is a different, rejected listing and must not be used)
+- Marketplace plugin ID: `remnote-mcp-bridge-y-edition-dev`
 - Local development plugin ID: `remnote-mcp-bridge-y-edition-dev-2`
 - Local manifest URL: `http://localhost:8080/manifest.json`
 - Local bridge HTTP: `http://127.0.0.1:3400`
 - Local bridge WebSocket: `ws://127.0.0.1:3401`
 
-Use `public/manifest.marketplace.json` when preparing a marketplace package for
-the existing public plugin ID. The default `public/manifest.json` remains the
-local development manifest so it does not collide with the marketplace install
-inside the same RemNote profile.
+`public/manifest.marketplace.json` is the manifest for the marketplace package.
+The default `public/manifest.json` stays the local development manifest, so it
+does not collide with a marketplace install in the same RemNote profile. The
+package ships `public/logo.png`; RemNote reads `<plugin base>/logo.png` for the
+plugin icon.
 
-The marketplace package also includes `public/logo.png` (RemNote reads `<plugin base>/logo.png` for the plugin icon) and `public/logo.svg`, so the published plugin
-uses a custom bridge mark instead of the SDK's autogenerated placeholder logo.
+How to publish an update (confirmed by RemNote support, November 2026):
 
-Marketplace update note: RemNote's **Build -> Upload plugin** button currently
-behaves like a new-plugin submission path. If it returns
-`A plugin with ID remnote-mcp-bridge-y-edition-dev already exists`, do **not** choose
-a new ID. That would create a separate marketplace entry instead of updating the
-existing one. Keep the stable ID and use the existing listing's owner/manage
-update path if RemNote exposes one, or send the prepared package/repo to RemNote
-review/support for the existing plugin ID.
+1. Sign in to the RemNote account that originally published the listing.
+2. Build the package with the **same ID** (`remnote-mcp-bridge-y-edition-dev`)
+   and a **higher manifest version**:
+   `NODE_ENV=production REMNOTE_BUILD_TARGET=marketplace npx webpack`, or
+   `build_marketplace_package.ps1`.
+3. Upload it in **Settings → Plugins → Build → Upload plugin**. No new listing
+   is needed.
+
+An ordinary update to an approved plugin normally keeps its approval. Requesting
+new native permissions or switching between unlisted and listed can require
+another review. `enableOnMobile: true` only allows mobile loading; test the
+real Android flow before relying on it.
 
 ## Sections (unified plugin, 2.61.0)
 
@@ -326,6 +380,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\test_flashcard_actions.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\verify_remnote_rontgen.ps1 -CaptureScreenshot
 ```
 
+Targeted tests for the unified plugin:
+
+```bash
+npx tsc --noEmit -p .
+node --test test_features.cjs test_ogren.cjs test_eisenhower_board.cjs test_version_consistency.cjs
+```
+
 Expected coverage:
 
 ```text
@@ -336,7 +397,7 @@ Expected live health:
 
 ```text
 pluginConnected = true
-pluginVersion = 2.59.41
+pluginVersion = 2.61.0
 verify_remnote_rontgen.ps1 ok = true
 ```
 

@@ -2,6 +2,45 @@
 
 All notable changes in this fork are documented in this file.
 
+## [2.61.0] - 2026-11-19
+
+### Added
+
+- Unified plugin: Translation & AI Assistant, Learn, Eisenhower board, Todo
+  Alarm, PDF Reading View, MyDrive and No Bullet editor mode are optional
+  sections with their own `feature.<id>` settings. Only the MCP Bridge is on
+  by default.
+- Learn (vocabulary lessons): introduce, then quiz (meaning, fill-in-the-blank,
+  letter-tile spelling); results go to RemNote's repetition history only on
+  Save. Desktop-only memory help suggests Wikimedia Commons images and
+  sound-alike stories; "Add to card" only appends a new child line.
+- `public/logo.png` so RemNote shows the plugin icon.
+- Eisenhower command "use this document as the board"; tags are resolved from
+  synced storage, then by name.
+
+### Changed
+
+- Marketplace manifest targets the approved listing
+  `remnote-mcp-bridge-y-edition-dev`, version 2.61.0, `enableOnMobile: true`,
+  same scopes, `requestNative: false`.
+- On mobile the local bridge, localhost calls and CDP features never start.
+- Personal document/tag/folder IDs moved out of the source into an untracked
+  `local-defaults.json` read only by local development builds.
+
+### Fixed
+
+- Core 1.5.0: `{$rem}` references passed to ID-only parameters are marshalled
+  to plain IDs (tag removal no longer hangs); per-call 30 s timeout with queue
+  recovery in the executor.
+- Learn card images render inside the lesson window and no longer lag while
+  scrolling.
+
+### Known limitations
+
+- Todo Alarm needs a local service update before it works from the combined
+  plugin; MyDrive settings must be entered again; Android not yet tested on a
+  real device.
+
 ## [2.59.35] - 2026-08-30
 
 ### Fixed
